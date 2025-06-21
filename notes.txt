@@ -1,0 +1,35 @@
+|| MEASUREMENTS || 
+Brazil nut - 1.5cm (width)
+Air viscosity -1.8 x 10⁻⁵ Pa·s
+
+|| ABRREVIATIONS || 
+W = weight
+s = displacement
+v = velocity
+a = acceleration
+Vol = volume of particle
+m = mass
+R = radius
+rho = density
+Mu = viscosity (air)
+Reff = effective radius
+
+
+|| FORMULAS || 
+💡 i represents a single particle
+
+* air resistance -> -6πMuRᵢvᵢ,
+	> where -6πMu is constant
+	📚 the greater size and speed of a particle, the greater the air resistance
+
+* collisions (repulsion) -> (⅔Ẽ√(Reff)hᵢⱼ(⅔))řᵢⱼ,
+	> where Ẽ = E/(1-ν²),
+		> where E is Young's modulus (measuring stiffness of a material)
+		> and ν is Possion's ratio (ratio of transverse contraction -- deformation of a solid body)
+	> where Reff = RᵢRⱼ/(Rᵢ+Rⱼ)
+	> where hᵢⱼ = Rᵢ + Rⱼ - |->Sᵢⱼ|
+		> where ->Sᵢⱼ = ->Sᵢ - ->Sⱼ
+		📚 if the distance between centers is less than the sum of both radii (overlap), collision occurs 
+	> where řᵢⱼ = rᵢⱼ/|rᵢⱼ| (normal vector of contact plane)
+	
+		
