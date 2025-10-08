@@ -4,6 +4,7 @@ import cv2
 import os
 from matplotlib.patches import Circle
 import math
+import csv
 
 ### DIRECTORY
 os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS/ISS2.0/Figures/")
@@ -12,7 +13,7 @@ current_directory = os.getcwd()
 ### LISTS
 g = np.array([0.0, -9.8, 0.0])  # (gravitational field strength)
 s = np.array([[ # 0 to 0.2
-    [0.12, 0.1, 0],
+    [0.12, 0.1, 0], # x, y, z
     [0.1, 0.2, 0],
     [0.13, 0.19, 0],
     [0, 0.16, 0]
@@ -32,6 +33,12 @@ t_step = 1/24 # (seconds)
 Mu = 1.82*10**-4 # (air viscosity [Pa*s])
 
 ### FUNCTIONS
+def WRITE(file, data):
+    with open(file, "w", newline='') as fin:
+        writer = csv.writer(fin)
+        writer.writerows(data)
+        print(f"data written to '{file}'")
+    
 def get_Vol(R):
     vol = (4/3)*math.pi*(R**3)
     return vol
@@ -180,7 +187,6 @@ for t_index in range(48):
 
 graphs_out(s, R)
 
-
 #==== export to video ====#
     
 images = [img for img in os.listdir(current_directory) if img.endswith(".png")]
@@ -201,3 +207,6 @@ for image in images:
 out.release()
 print(f"video '{video_name}' created successfully")
 
+#==== write to csv ====#
+os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS/ISS2.0/")
+WRITE("data.csv", [[f"particle{i+1}" for i in range(len(R))], *s.tolist()])
