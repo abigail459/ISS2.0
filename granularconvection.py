@@ -12,22 +12,24 @@ os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS/ISS2.0/Figures/")
 current_directory = os.getcwd()
 
 ### LISTS
-g = np.array([0.0, -9.8, 0.0])  # (gravitational field strength)
+g = np.array([0.0, 0.0, 0.0])  # (gravitational field strength)
 s = np.array([[ # (0 to 0.2) (3d array)
-    [0.12, 0.1, 0], # (x, y, z)
-    [0.1, 0.2, 0],
-    [0.13, 0.19, 0],
+    [0.13, 0.08, 0], # (x, y, z)
+    [0.13, 0.1, 0],
+    [0.04, 0.19, 0],
     [0, 0.16, 0]
     ]]) 
 v = np.array([[  # velocity of travel
-    [0.2, 0.6, 0],
-    [0.02, 0.3, 0],
+    [0.0, 0.2, 0],
+    [0.0, -0.1, 0],
     [-0.3, 0.01, 0],
     [-0.01, -0.3, 0]
     ]])
 
 R = np.array([0.007, 0.008, 0.01, 0.008])
 rho = np.array([0.9, 0.9, 0.9, 0.9])
+fps = 48
+simulation_duration = 2 # seconds
 
 ### VARIABLES
 t_step = 1/24 # (seconds)
@@ -44,14 +46,14 @@ def get_Vol(R): # (scalar)
     vol = (4/3)*math.pi*(R**3)
     return vol
 
-def get_m(Vol, rho): # (scalar)
+def get_m(Vol, rho): # (1d array)
     return Vol*rho
 
-def get_W(m, g):
+def get_W(m, g): # (2d array)
     return np.transpose([m])@[g]
 
-def get_Fnet(W, Fdrag):
-    return W+Fdrag
+def get_Fnet(W, Fdrag, fCollisions):
+    return W+Fdrag+fCollisions
 
 def get_Fdrag(Mu, Ri, Vi): # (air resistance using stokes formula)
     const = -6*math.pi*Mu
@@ -66,7 +68,7 @@ def get_allSij(latest_s): # (3d arrays)
     for row in range(size):
         for col in range(size):
             allSij[row][col] = latest_s[row] - latest_s[col]
-            allSij[col][row] = -(latest_s[row] - latest_s[col])
+            allSij[col][row] = -(allSij[row][col])
     return allSij
 
 def get_allHij(R, allSij): #(2d array) 
@@ -113,30 +115,28 @@ def get_allSijhat(allSij): # (3d array)
     # return np.nan_to_num(allSijhat)
     return allSijhat
 
-def get_allfij(R, Etilde, allReff, allHij, allSijhat): # (3d array)
+def get_allfij(R, Etilde, allReff, allHij, allSijhat):
     size = len(R)
-    allfij = np.full((size, size, 3), (2/3) * Etilde)
+    allfij = np.array([[[0.0]*3]*size]*size)
     for row in range(size):
         for col in range(size):
-            if row == col:
-                allfij[row][col] = 0
-            else:
-                allfij[row][col] = (allfij[row][col]*
+            if row != col and allHij[row][col] > 0:
+                allfij[row][col] = ((2/3)*Etilde*
                                     (math.sqrt(allReff[row][col]))*
                                     ((max(allHij[row][col], 0.0))**(3/2))*
                                     allSijhat[row][col]
                                     ) 
-                allfij[col][row] = allfij[row][col]
+            allfij[col][row] = -allfij[row][col]
     return allfij
 
-def get_allfi(R, allfij): # (2d array)
+def get_allfCollisions(R, allfij): # (2d array)
     size = len(R)
-    allfi = np.array([[0.0]*size]*size)
-    for a, row in enumerate(allfij):
-        for b, col in enumerate(row):
-            for tobesum in range(3):
-                allfi[a][b] += col[tobesum]
-    return allfi
+    allfCollisions = np.array([[0.0]*3]*size)
+    for row in range(size):
+        for col in range(size):
+            allfCollisions[row] += allfij[row][col]
+    return allfCollisions
+
 
 def create_a(Fnet, m): 
     m = np.transpose([m])@np.array([[1,1,1]])
@@ -199,14 +199,22 @@ def graphs_out(s, R):
 Vol = get_Vol(R)
 m = get_m(Vol, rho)
 W = get_W(m, g)
+Etilde = get_Etilde(10**9, 0.4)
 
-for t_index in range(48):
+
+for t_index in range(fps*simulation_duration):
+    allSij = get_allSij(s[-1])
+    allSijhat = get_allSijhat(allSij)
+    allHij = get_allHij(R, allSij)
+    allReff = get_allReff(R)
+    allfij = get_allfij(R, Etilde, allReff, allHij, allSijhat)
+    fCollisions = get_allfCollisions(R, allfij)
     if t_index == 0:
         Fdrag = get_Fdrag(Mu, R, v[t_index])
     else:
-        Fdrag =get_Fdrag(Mu, R, v[t_index-1])
+        Fdrag = get_Fdrag(Mu, R, v[t_index-1])
     
-    Fnet = get_Fnet(W, Fdrag)
+    Fnet = get_Fnet(W, Fdrag, fCollisions)
     if t_index == 0:
         a = create_a(Fnet, m)
     else:
@@ -215,6 +223,8 @@ for t_index in range(48):
     v = append_v(v, a, t_step, t_index)
     s = append_s(s, v, a, t_step, t_index)
     
+    if t_index == 0 or t_index == 1:
+        print("allfCollisions", fCollisions)
 
 graphs_out(s, R)
 
@@ -227,7 +237,6 @@ frame = cv2.imread(os.path.join(current_directory, images[0]))
 height, width, layers = frame.shape
 size = (width, height)
 video_name = '0_video.mp4'
-fps = 24
 out = cv2.VideoWriter(video_name, cv2.VideoWriter_fourcc(*'mp4v'), fps, size)
 
 for image in images:
