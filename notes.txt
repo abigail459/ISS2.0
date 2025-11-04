@@ -31,5 +31,12 @@ Reff = effective radius
 		> where ->Sᵢⱼ = ->Sᵢ - ->Sⱼ
 		📚 if the distance between centers is less than the sum of both radii (overlap), collision occurs 
 	> where řᵢⱼ = rᵢⱼ/|rᵢⱼ| (normal vector of contact plane)
-	
-		
+
+
+
+
+>>
+
+one of those matrixes is the distance of each particle to each other
+fij = f on i by j
+s is different from sin
