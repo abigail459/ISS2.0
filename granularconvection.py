@@ -12,7 +12,7 @@ os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS/ISS2.0/Figures/")
 current_directory = os.getcwd()
 
 ### LISTS
-g = np.array([0.0, 0.0, 0.0])  # (gravitational field strength)
+g = np.array([0.0, -9.8, 0.0])  # (gravitational field strength)
 s = np.array([[ # (0 to 0.2) (3d array)
     [0.13, 0.08, 0], # (x, y, z)
     [0.13, 0.1, 0],
@@ -55,6 +55,24 @@ def get_W(m, g): # (2d array)
 def get_Fnet(W, Fdrag, fCollisions):
     return W+Fdrag+fCollisions
 
+def get_Etilde(youngE, possionNu): # (scalar)
+    return youngE/(1-possionNu**2)
+
+def get_magnitude(s): # (3d array)
+    return math.sqrt(sum(i**2 for i in s))
+
+def get_unit_vector(s): # (particle)
+    return s/get_magnitude(s)
+
+def get_allReff(R): # (2d array)
+    size = len(R)
+    allReff = np.array([[0.0]*size]*size)
+    for row in range(size):
+        for col in range(size):
+            allReff[row][col] = (R[row]*R[col])/(R[row]+R[col])
+            allReff[col][row] = allReff[row][col]
+    return allReff
+
 def get_Fdrag(Mu, Ri, Vi): # (air resistance using stokes formula)
     const = -6*math.pi*Mu
     Ri_new = np.transpose([Ri])@([[const, const, const]])
@@ -82,12 +100,6 @@ def get_allHij(R, allSij): #(2d array)
             allHij[col][row] = allHij[row][col]
     return allHij
 
-def get_magnitude(s): # (3d array)
-    return math.sqrt(sum(i**2 for i in s))
-
-def get_unit_vector(s): # (particle)
-    return s/get_magnitude(s)
-
 def get_allSij_magnitudes(allSij): # (2d array)
     size = len(allSij)
     allSij_magnitudes = np.array([[0.0]*size]*size)
@@ -97,25 +109,13 @@ def get_allSij_magnitudes(allSij): # (2d array)
 
     return allSij_magnitudes
 
-def get_allReff(R): # (2d array)
-    size = len(R)
-    allReff = np.array([[0.0]*size]*size)
-    for row in range(size):
-        for col in range(size):
-            allReff[row][col] = (R[row]*R[col])/(R[row]+R[col])
-            allReff[col][row] = allReff[row][col]
-    return allReff
-
-def get_Etilde(youngE, possionNu):
-    return youngE/(1-possionNu**2)
-
 def get_allSijhat(allSij): # (3d array)
     allSij_magnitudes = get_allSij_magnitudes(allSij)
     allSijhat = allSij/allSij_magnitudes[:, :, np.newaxis]
     # return np.nan_to_num(allSijhat)
     return allSijhat
 
-def get_allfij(R, Etilde, allReff, allHij, allSijhat):
+def get_allfij(R, Etilde, allReff, allHij, allSijhat): # (3d array)
     size = len(R)
     allfij = np.array([[[0.0]*3]*size]*size)
     for row in range(size):
@@ -138,12 +138,12 @@ def get_allfCollisions(R, allfij): # (2d array)
     return allfCollisions
 
 
-def create_a(Fnet, m): 
+def create_a(Fnet, m): # (2d array)
     m = np.transpose([m])@np.array([[1,1,1]])
 
     return [Fnet/m]
 
-def append_a(a, Fnet, m):
+def append_a(a, Fnet, m): # (2d array)
     m = np.transpose([m])@np.array([[1,1,1]])
     
     new_a = Fnet/m
@@ -151,13 +151,13 @@ def append_a(a, Fnet, m):
     
     return a
 
-def append_v(v, a, t_step, t_index):
+def append_v(v, a, t_step, t_index): # (2d array)
     new_v = v[t_index]+a[t_index]*t_step
     v = np.vstack((v, [new_v]))
     
     return v
 
-def append_s(s, v, a, t_step, t_index):
+def append_s(s, v, a, t_step, t_index): # (2d array)
     new_s = s[t_index]+v[t_index]*t_step+0.5*a[t_index]*(t_step)**2
     s = np.vstack((s, [new_s]))
     
@@ -165,7 +165,6 @@ def append_s(s, v, a, t_step, t_index):
 
 
 def graphs_out(s, R): 
-
     for index, t_index in enumerate(s):
         ax = plt.gca() # (get current axes)
 
@@ -201,7 +200,7 @@ m = get_m(Vol, rho)
 W = get_W(m, g)
 Etilde = get_Etilde(10**9, 0.4)
 
-
+print(m)
 for t_index in range(fps*simulation_duration):
     allSij = get_allSij(s[-1])
     allSijhat = get_allSijhat(allSij)
@@ -219,13 +218,12 @@ for t_index in range(fps*simulation_duration):
         a = create_a(Fnet, m)
     else:
         a = append_a(a, Fnet, m)
+
+
 ##    print(v[t_index-1], Fdrag, Fnet, "-----------", sep="\n\n")
     v = append_v(v, a, t_step, t_index)
     s = append_s(s, v, a, t_step, t_index)
     
-    if t_index == 0 or t_index == 1:
-        print("allfCollisions", fCollisions)
-
 graphs_out(s, R)
 
 #==== export to video ====#
