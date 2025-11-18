@@ -345,24 +345,24 @@ def run_simulation():
     a_current = F / m[:, np.newaxis]
     
     frame_counter = 0
-    create_frame(s_current, R, frame_counter, n_falling, time)
+    create_frame(s_current, R, frame_counter, n_falling, time) 
     frame_counter += 1
     
-    n_steps = int(simulation_duration / t_step)
+    n_steps = int(simulation_duration / t_step) #iterations
     
-    import time as time_module
-    start_time = time_module.time()
-    last_print = start_time
+    import time as time_module  # avoid meddling w our actual values
+    start_time = time_module.time() # actual seconds elapsed on computer
+    last_print = start_time # records when simulation started
     
     print("\nRunning simulation...")
     
     for step in range(1, n_steps):
-        time = step * t_step
+        time = step * t_step #time: Simulation time (physics time, not wall-clock time)
         
-        box_disp = get_box_displacement(time)
+        box_disp = get_box_displacement(time) 
         box_velocity = get_box_velocity(time)
         
-        # Progress every 10 seconds
+        #progress reporting!! 
         current_time = time_module.time()
         if current_time - last_print >= 10.0:
             elapsed = current_time - start_time
@@ -372,16 +372,23 @@ def run_simulation():
             print(f"  {progress:.1f}% | {elapsed:.0f}s elapsed | {eta:.0f}s remaining")
             last_print = current_time
         
-        # Verlet integration
-        s_new = s_current.copy()
+        # Verlet integration ! 
+        ## a numerical method used in physics simulations to calculate the position of objects over time 
+        ## by using their current and previous positions, without explicitly needing velocity. 
+
+        s_new = s_current.copy() # current position of particle
         s_new[:n_falling] = s_current[:n_falling] + v_current[:n_falling] * t_step + \
-                            0.5 * a_current[:n_falling] * t_step**2
+                            0.5 * a_current[:n_falling] * t_step**2  #Linear motion 
+        # ^^ Update positions!!
         
+
         # Move box walls
         s_new[n_falling:] = box_positions_initial + np.array([box_disp, 0.0, 0.0])
         
         # Forces at new positions
         F_new = get_forces_optimised(s_new, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
+            # ^^ update v coz positions are at time t+Δt, but velocities still at time t
+            # implied to update v after s in eq 2.2
         a_new = F_new / m[:, np.newaxis]
         
         # Update velocities
@@ -422,7 +429,7 @@ def create_frame(s_current, R, frame_index, n_falling, time):
         circle = Circle((x, y), R[i], edgecolor='none', facecolor='#202020', alpha=1.0)
         ax.add_patch(circle)
     
-    # falling particles (coloured)
+    # falling particles visuals (coloured)
     colors = ['#FF3333', '#3333FF', '#33FF33', '#FFAA00', '#FF33FF', '#33FFFF', '#FFFF33']
     
     for i in range(n_falling):
@@ -436,53 +443,60 @@ def create_frame(s_current, R, frame_index, n_falling, time):
         ax.text(x, y, str(i+1), ha='center', va='center', fontsize=9, 
                 fontweight='bold', color='white')
     
-    # Fixed limits --> full screen
+
+
+    # axis fixed limits --> full screen
     ax.set_xlim(0, 0.2)
     ax.set_ylim(0, 0.2)
     ax.set_xlabel('x (m)', fontsize=11, fontweight='bold')
     ax.set_ylabel('y (m)', fontsize=11, fontweight='bold')
     
-    # Title
+    # graph title
     box_disp = get_box_displacement(time)
     ax.set_title(f'Time: {time:.2f}s | Oscillation: {box_disp*1000:.1f}mm', 
                 fontsize=12, fontweight='bold', pad=10)
     
     # Light grid
-    ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.5)
+    ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.5) # linestyle='--': Dashed lines
     
     fig.set_size_inches(6, 6)
     plt.savefig(f"fig_{frame_index:04d}.png", dpi=80, format='png')
-    plt.close(fig)
-    plt.clf()
-
-
+    plt.close(fig) # Close the figure window
+    plt.clf() #clears the entire content of the currently active Matplotlib figure,
 
 
 
 
 def create_video(output_name, fps, directory):
     print("Creating video...")
+    
+    #find all frame files
     images = sorted([img for img in os.listdir(directory) 
                      if img.endswith(".png") and img.startswith("fig_")])
     
+    #error msg if legit nothing was found
     if not images:
-        print("ERROR: No frames found.")
+        print("Error: No frames found.")
         return
-    
+    #count
     print(f"  Found {len(images)} frames")
     
+    #read first frame to define dimensions of the video
     frame = cv2.imread(os.path.join(directory, images[0]))
-    height, width = frame.shape[:2]
+    height, width = frame.shape[:2] # --> Returns (height, width, channels), e.g. (480, 480, 3) -> 480×480 RGB image
+    # ^^ only take height & weight tho. 
     
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_name, fourcc, fps, (width, height))
+    #write video.
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  #fourcc aka "Four Character Code" is a video codec identifier
+    out = cv2.VideoWriter(output_name, fourcc, fps, (width, height)) #videowriter object
     
+    #write all frames
     for img in images:
         frame = cv2.imread(os.path.join(directory, img))
-        if frame is not None and frame.shape[0] == height and frame.shape[1] == width:
-            out.write(frame)
+        if frame is not None and frame.shape[0] == height and frame.shape[1] == width: #ensure dimension matches
+            out.write(frame) # appends frame to video file
     
-    out.release()
+    out.release() # impt!! close video file (finalises encoding)
     print(f"Video: {output_name}")
 
 
@@ -490,14 +504,14 @@ def create_video(output_name, fps, directory):
 
 
 ### RUNNING
-if __name__ == "__main__":
+if __name__ == "__main__": #Only runs if script executed directly (not imported as module)
     print("\nCleaning old frames...")
     for file in os.listdir(current_directory):
         if file.startswith("fig_") and file.endswith(".png"):
-            os.remove(os.path.join(current_directory, file))
+            os.remove(os.path.join(current_directory, file)) # Delete file
     print("Cleaned")
     
-    n_frames, s_history = run_simulation()
+    n_frames, s_history = run_simulation() #executes the main simulation loop
     create_video('granular_1.mp4', display_fps, current_directory)
     
     print("\n" + "-"*60)
