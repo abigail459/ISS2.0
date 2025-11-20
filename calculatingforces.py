@@ -39,7 +39,7 @@ tangential_history = {}  # keys=(i,j), value = tangential displacement vector (Î
 
 # Helper to unify contact key ordering
 def contact_key(i, j):
-    return (i, j) if i < j else (j, i)
+    return (i, j) if i < j else (j, i) #- store in same format, smaller, larger
 
 # sIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds 
