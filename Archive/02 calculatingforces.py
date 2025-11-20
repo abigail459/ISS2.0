@@ -108,8 +108,22 @@ print(f"  Spacing: {wall_spacing*1000:.0f}mm")
 print(f"  Radius: {box_particle_radius*1000:.0f}mm")
 
 
+# ### CSV
+# def READ(file):
+#     completefile = []
+#     with open(file, 'r', newline='') as fin:
+#         reader = csv.reader(fin)
+#         for row in reader:
+#             completefile.append([float(x) for x in row])
+
+#     return completefile
 
 
+
+### FALLING PARTICLES
+data = np.load("s+v_falling_data.npz")
+s_falling = data["s_falling"]
+v_falling = data["v_falling"]
 
 
 ### FALLING PARTICLES
