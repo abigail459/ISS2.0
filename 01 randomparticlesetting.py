@@ -3,7 +3,7 @@ import random
 import numpy as np
 import os
 
-n_falling = 150
+n_falling = 216
 
 def WRITE(file, data):
     os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS2.0/data")
@@ -18,7 +18,7 @@ def s_gen():
 def v_gen():
     return float(random.uniform(-0.005, 0.003))
 def r_gen():
-    return float(random.uniform(0.002, 0.007))
+    return float(random.uniform(0.003, 0.007))
 
 
 

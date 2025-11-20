@@ -13,8 +13,8 @@ from collections import defaultdict
 
 
 ### DIRECTORY SETUP
-rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
-os.chdir(f"{rootdir}/ISS2.0/data")
+rootdir = "/Users/Abigail/Desktop/Sciences/"
+os.chdir(f"{rootdir}/ISS2.0/Figures")
 current_directory = os.getcwd()
 
 ### PHYSICAL PARAMETERS
@@ -28,14 +28,14 @@ w_adhesion = 0.0  # J/m^2,, Surface energy density for JKR cohesive contact.
                   # Eq. 2.4: JKR adhesive force.
 Mu_air = 1.82e-5  # Pa·s,, Dynamic viscosity of air. Used in Stokes drag Eq 2.9. Acts like a slow-down force for moving particles.
 
-# # FRICTION + TANGENTIAL HISTORY
-# k_t = 2e7           # produces tangential (shear) force, F = -k * ξ, tangential stiffness (N/m). 
-#                     # 𝜉 is stored tangential displacement.
-#                     # ^^ Spring constant for tangential deformation (Cundall–Strack model).
-#                     # If too high -> simulation may become “stiff” or jitter.
-# mu_t = 0.5          # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
-# mu_r = 0.01         # rolling friction coefficient (approx.)
-# tangential_history = {}  # keys=(i,j), value = tangential displacement vector (ξ_ij)
+# FRICTION + TANGENTIAL HISTORY
+k_t = 2e7           # produces tangential (shear) force, F = -k * ξ, tangential stiffness (N/m). 
+                    # 𝜉 is stored tangential displacement.
+                    # ^^ Spring constant for tangential deformation (Cundall–Strack model).
+                    # If too high -> simulation may become “stiff” or jitter.
+mu_t = 0.5          # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
+mu_r = 0.01         # rolling friction coefficient (approx.)
+tangential_history = {}  # keys=(i,j), value = tangential displacement vector (ξ_ij)
 
 # Helper to unify contact key ordering
 def contact_key(i, j):
@@ -43,7 +43,7 @@ def contact_key(i, j):
 
 # sIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds 
-simulation_duration = 3.0  # 1 second 
+simulation_duration = 1.0  # 1 second 
 display_fps = 30  # 30 fps
 save_every_n_steps = int(1.0 / (display_fps * t_step))
 
@@ -54,15 +54,15 @@ print(f"  Total steps: {int(simulation_duration/t_step):,}")
 print(f"  Frames: {int(simulation_duration * display_fps)}")
 
 # gravity
-g = np.array([0.0, -9.8, 0.0])  # gravity m/s² (realistic settling)
+g = np.array([0.0, -15.0, 0.0])  # 15 m/s² (realistic settling)
 
 
 
 
 
 ### BOX OSCILLATION
-oscillation_amplitude = 0.0045  # 3mm
-oscillation_frequency = 5.0  # 2 Hz
+oscillation_amplitude = 0.003  # 3mm
+oscillation_frequency = 2.0  # 2 Hz
 omega = 2 * np.pi * oscillation_frequency
 
 def get_box_displacement(time):
@@ -107,25 +107,33 @@ print(f"Wall particles: {n_box}")
 print(f"  Spacing: {wall_spacing*1000:.0f}mm")
 print(f"  Radius: {box_particle_radius*1000:.0f}mm")
 
-### CSV
-def READ(file):
-    completefile = []
-    with open(file, 'r', newline='') as fin:
-        reader = csv.reader(fin)
-        for row in reader:
-            completefile.append([float(x) for x in row])
 
-    return completefile
+
 
 
 
 ### FALLING PARTICLES
-data = np.load("falling_data.npz")
-s_falling = data["s_falling"]
-v_falling = data["v_falling"]
-R_falling = data["R_falling"]
+s_falling = np.array([
+    [0.05, 0.16, 0.0],
+    [0.08, 0.16, 0.0],
+    [0.10, 0.16, 0.0],
+    [0.12, 0.16, 0.0],
+    [0.15, 0.16, 0.0],
+    [0.07, 0.13, 0.0],
+    [0.13, 0.13, 0.0]
+])
 
+v_falling = np.array([
+    [0.005, 0.0, 0.0],
+    [-0.005, 0.0, 0.0],
+    [0.003, 0.0, 0.0],
+    [-0.003, 0.0, 0.0],
+    [0.002, 0.0, 0.0],
+    [0.004, 0.0, 0.0],
+    [-0.004, 0.0, 0.0]
+])
 
+R_falling = np.array([0.004, 0.0042, 0.0038, 0.0045, 0.004, 0.0043, 0.0041])
 
 s = np.vstack([s_falling, box_positions_initial])
 v = np.vstack([v_falling, np.zeros((n_box, 3))])
@@ -260,15 +268,15 @@ def get_forces_optimised(s, v, R, m, gamma_n, E_tilde, n_falling, box_velocity, 
                 v_t = v_rel - v_rel_normal * r_hat
                 
                 key = contact_key(i, j)
-                # if key not in tangential_history:
-                #     tangential_history[key] = np.zeros(3)
+                if key not in tangential_history:
+                    tangential_history[key] = np.zeros(3)
                 
-                # # Integrate tangential spring: xi <- xi + v_t * dt
-                # xi_t = tangential_history[key] + v_t * t_step
-                # tangential_history[key] = xi_t.copy()
+                # Integrate tangential spring: xi <- xi + v_t * dt
+                xi_t = tangential_history[key] + v_t * t_step
+                tangential_history[key] = xi_t.copy()
                 
                 # Raw tangential force from spring
-                # f_t_raw = - k_t * xi_t
+                f_t_raw = - k_t * xi_t
                 
                 # Normal force magnitude for Coulomb limit
                 # Use the normal component (positive compressive); clamp to small positive
@@ -279,32 +287,32 @@ def get_forces_optimised(s, v, R, m, gamma_n, E_tilde, n_falling, box_velocity, 
                 else:
                     f_n_mag = max(f_n_mag, 1e-12)
                 
-                # f_t_mag = np.linalg.norm(f_t_raw)
-                # if f_t_mag > mu_t * f_n_mag:
-                #     # sliding: scale tangential force to Coulomb limit
-                #     f_t = f_t_raw * (mu_t * f_n_mag / f_t_mag)
-                #     # update stored xi consistently: xi = -f_t / k_t
-                #     tangential_history[key] = -f_t / k_t
-                # else:
-                #     # sticking: keep spring force
-                #     f_t = f_t_raw
+                f_t_mag = np.linalg.norm(f_t_raw)
+                if f_t_mag > mu_t * f_n_mag:
+                    # sliding: scale tangential force to Coulomb limit
+                    f_t = f_t_raw * (mu_t * f_n_mag / f_t_mag)
+                    # update stored xi consistently: xi = -f_t / k_t
+                    tangential_history[key] = -f_t / k_t
+                else:
+                    # sticking: keep spring force
+                    f_t = f_t_raw
                 
                 # numerical cleanup: remove any tiny normal component in f_t
-                # f_t = f_t - np.dot(f_t, r_hat) * r_hat
+                f_t = f_t - np.dot(f_t, r_hat) * r_hat
                 
                 # --- Rolling resistance (approximate)
                 # We don't track angular velocity of spheres; approximate rolling resistance
                 # as a tangential force opposing v_t with magnitude μ_r * F_n
-                # v_t_norm = np.linalg.norm(v_t)
-                # if v_t_norm > 1e-12:
-                #     f_roll_mag = mu_r * f_n_mag
-                #     f_roll_dir = -v_t / v_t_norm
-                #     f_roll = f_roll_mag * f_roll_dir
-                # else:
-                #     f_roll = np.zeros(3)
+                v_t_norm = np.linalg.norm(v_t)
+                if v_t_norm > 1e-12:
+                    f_roll_mag = mu_r * f_n_mag
+                    f_roll_dir = -v_t / v_t_norm
+                    f_roll = f_roll_mag * f_roll_dir
+                else:
+                    f_roll = np.zeros(3)
                 
                 # Total contact force = normal + tangential + rolling
-                f_contact = f_normal
+                f_contact = f_normal + f_t + f_roll
                 
                 # Only falling particles respond
                 if i < n_falling:
@@ -314,8 +322,8 @@ def get_forces_optimised(s, v, R, m, gamma_n, E_tilde, n_falling, box_velocity, 
             else:
                 # contact ended: remove tangential history to avoid memory growth and reset spring
                 key = contact_key(i, j)
-                # if key in tangential_history:
-                #     del tangential_history[key]
+                if key in tangential_history:
+                    del tangential_history[key]
     
     return F_total
 
@@ -330,15 +338,16 @@ def run_simulation():
     
     s_current = s.copy()
     v_current = v.copy()
-    s_history = [s_current.copy()]
+    s_history = [s_current[:n_falling].copy()]
     
     time = 0.0
-    time_history = [0.0]
     box_velocity = get_box_velocity(time)
     F = get_forces_optimised(s_current, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
     a_current = F / m[:, np.newaxis]
     
-    frame_counter = 1
+    frame_counter = 0
+    create_frame(s_current, R, frame_counter, n_falling, time) 
+    frame_counter += 1
     
     n_steps = int(simulation_duration / t_step) #iterations
     
@@ -393,20 +402,9 @@ def run_simulation():
         
         # Save frame
         if step % save_every_n_steps == 0:
-            s_history.append(s_current.copy())
-            time_history.append(time)
+            s_history.append(s_current[:n_falling].copy())
+            create_frame(s_current, R, frame_counter, n_falling, time)
             frame_counter += 1
-
-        np.savez(
-            "generated_values.npz", 
-            s_history = np.array(s_history),
-            n_frames = frame_counter,
-            R = R,
-            n_falling = n_falling,
-            time_history = time_history,
-            oscillation_amplitude = oscillation_amplitude,
-            oscillation_frequency = oscillation_frequency
-        )
     
     total_time = time_module.time() - start_time
     print(f"\n{'-'*60}")
@@ -416,7 +414,109 @@ def run_simulation():
     return frame_counter, s_history
 
 
+
+
+
+### VISUALISATION 
+def create_frame(s_current, R, frame_index, n_falling, time):
+    fig = plt.figure(figsize=(6, 6), dpi=80)  # Smaller/lower DPI = faster
+    ax = fig.add_subplot(111)
+    ax.set_aspect('equal')
+    ax.set_facecolor('#e8e8e8')
+    
+    # box walls (gray circles)
+    for i in range(n_falling, len(R)):
+        x, y = s_current[i, 0], s_current[i, 1]
+        circle = Circle((x, y), R[i], edgecolor='none', facecolor='#202020', alpha=1.0)
+        ax.add_patch(circle)
+    
+    # falling particles visuals (coloured)
+    colors = ['#FF3333', '#3333FF', '#33FF33', '#FFAA00', '#FF33FF', '#33FFFF', '#FFFF33']
+    
+    for i in range(n_falling):
+        x, y = s_current[i, 0], s_current[i, 1]
+        color = colors[i % len(colors)]
+        
+        circle = Circle((x, y), R[i], edgecolor='black', facecolor=color, 
+                       alpha=0.9, linewidth=2)
+        ax.add_patch(circle)
+        
+        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=9, 
+                fontweight='bold', color='white')
+    
+
+
+    # axis fixed limits --> full screen
+    ax.set_xlim(0, 0.2)
+    ax.set_ylim(0, 0.2)
+    ax.set_xlabel('x (m)', fontsize=11, fontweight='bold')
+    ax.set_ylabel('y (m)', fontsize=11, fontweight='bold')
+    
+    # graph title
+    box_disp = get_box_displacement(time)
+    ax.set_title(f'Time: {time:.2f}s | Oscillation: {box_disp*1000:.1f}mm', 
+                fontsize=12, fontweight='bold', pad=10)
+    
+    # Light grid
+    ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.5) # linestyle='--': Dashed lines
+    
+    fig.set_size_inches(6, 6)
+    plt.savefig(f"fig_{frame_index:04d}.png", dpi=80, format='png')
+    plt.close(fig) # Close the figure window
+    plt.clf() #clears the entire content of the currently active Matplotlib figure,
+
+
+
+
+def create_video(output_name, fps, directory):
+    print("Creating video...")
+    
+    #find all frame files
+    images = sorted([img for img in os.listdir(directory) 
+                     if img.endswith(".png") and img.startswith("fig_")])
+    
+    #error msg if legit nothing was found
+    if not images:
+        print("Error: No frames found.")
+        return
+    #count
+    print(f"  Found {len(images)} frames")
+    
+    #read first frame to define dimensions of the video
+    frame = cv2.imread(os.path.join(directory, images[0]))
+    height, width = frame.shape[:2] # --> Returns (height, width, channels), e.g. (480, 480, 3) -> 480×480 RGB image
+    # ^^ only take height & weight tho. 
+    
+    #write video.
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  #fourcc aka "Four Character Code" is a video codec identifier
+    out = cv2.VideoWriter(output_name, fourcc, fps, (width, height)) #videowriter object
+    
+    #write all frames
+    for img in images:
+        frame = cv2.imread(os.path.join(directory, img))
+        if frame is not None and frame.shape[0] == height and frame.shape[1] == width: #ensure dimension matches
+            out.write(frame) # appends frame to video file
+    
+    out.release() # impt!! close video file (finalises encoding)
+    print(f"Video: {output_name}")
+
+
+
+
+
 ### RUNNING
 if __name__ == "__main__": #Only runs if script executed directly (not imported as module)
+    print("\nCleaning old frames...")
+    for file in os.listdir(current_directory):
+        if file.startswith("fig_") and file.endswith(".png"):
+            os.remove(os.path.join(current_directory, file)) # Delete file
+    print("Cleaned")
+    
     n_frames, s_history = run_simulation() #executes the main simulation loop
- 
+    create_video('granular_1.mp4', display_fps, current_directory)
+    
+    print("\n" + "-"*60)
+    print("DONE!")
+    print(f"Video: granular_1.mp4")
+    print(f"Frames: {n_frames}")
+    print("-"*60)

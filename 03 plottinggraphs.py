@@ -65,7 +65,15 @@ def create_frame(s_current, R, frame_index, n_falling, time):
     
     for i in range(n_falling):
         x, y = s_current[i, 0], s_current[i, 1]
-        color = colors[i % len(colors)]
+        highcutoff = max(R)-((max(R)-min(R))/3) # relative to size sample
+        lowcutoff = min(R)+((max(R)-min(R))/3)
+        if R[i] > highcutoff:
+            color = "#004CFF"
+        elif R[i] < lowcutoff:
+           color = "#FF0000"
+        else:
+            color = "#33FF33"
+#        color = colors[i % len(colors)]
         
         circle = Circle((x, y), R[i], edgecolor='black', facecolor=color, 
                        alpha=0.9, linewidth=2)
@@ -140,9 +148,9 @@ if __name__ == "__main__": #Only runs if script executed directly (not imported 
     current_directory = os.getcwd()
 
     run_simulation_visually() # executes the main simulation loop
-    create_video('granular_1.mp4', display_fps, current_directory)
+    create_video('output.mp4', display_fps, current_directory)
     
     print("\n" + "-"*60)
     print("DONE!")
-    print(f"Video: granular_1.mp4")
+    print(f"Video: 'output.mp4'")
     print("-"*60)
