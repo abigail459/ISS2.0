@@ -1,3 +1,4 @@
+#main
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -13,14 +14,14 @@ from collections import defaultdict
 
 
 ### DIRECTORY SETUP
-rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
+rootdir = "/Users/liliy/Documents/GitHub/" # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 
 ### PHYSICAL PARAMETERS
 rho_particle = 7630  # kg/m^3, eq 2.1a
-E_tilde = 1e7  # Pa, the effective Young’s modulus in Hertzian contact formula.
-               # Lower value -> “softer” particles -> deeper overlaps -> slower/stable simulation.
+E_tilde = 1e7  # Pa, the effective Young's modulus in Hertzian contact formula.
+               # Lower value -> "softer" particles -> deeper overlaps -> slower/stable simulation.
 gamma_n_over_R = 3e5  #Pa*s/m,, more damping --> less bounce,, controls energy loss during collisions.s
 w_adhesion = 0.0  # J/m^2,, Surface energy density for JKR cohesive contact.
                   # Set to zero → no sticking forces between particles (non-cohesive granular flow).
@@ -32,7 +33,7 @@ Mu_air = 1.82e-5  # Pa·s,, Dynamic viscosity of air. Used in Stokes drag Eq 2.9
 # k_t = 2e7           # produces tangential (shear) force, F = -k * ξ, tangential stiffness (N/m). 
 #                     # 𝜉 is stored tangential displacement.
 #                     # ^^ Spring constant for tangential deformation (Cundall–Strack model).
-#                     # If too high -> simulation may become “stiff” or jitter.
+#                     # If too high -> simulation may become "stiff" or jitter.
 # mu_t = 0.5          # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
 # mu_r = 0.01         # rolling friction coefficient (approx.)
 # tangential_history = {}  # keys=(i,j), value = tangential displacement vector (ξ_ij)
@@ -43,8 +44,8 @@ def contact_key(i, j):
 
 # sIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds 
-simulation_duration = 3.0  # 1 second 
-display_fps = 30  # 30 fps
+simulation_duration = 1.0  # 1s
+display_fps = 60  # 60 fps
 save_every_n_steps = int(1.0 / (display_fps * t_step))
 
 print(f"SETTINGS:")
@@ -60,16 +61,67 @@ g = np.array([0.0, -9.8, 0.0])  # gravity m/s² (realistic settling)
 
 
 
-### BOX OSCILLATION
-oscillation_amplitude = 0.0045  # 3mm
-oscillation_frequency = 5.0  # 2 Hz
-omega = 2 * np.pi * oscillation_frequency
+### OSCILLATION CONFIGURATION
+class oscillation_config:
+    def __init__(self):
+        # Enable/disable the direction of vibration
+        self.enable_x = False   # Horizontal
+        self.enable_y = True   # Vertical
+        
+        self.amplitude_x = 0.0045  # 4.5mm
+        self.amplitude_y = 0.0045   # 3mm
+        
+        self.frequency_x = 5.0
+        self.frequency_y = 5.0
+        
+        # phase shifts (IN RADIANS BTW!) --> this shd only be used if we know what we're doing tho
+        self.phase_x = 0.0
+        self.phase_y = 0.0  # e.g. np.pi/2 for circular move ??????? i think thats how phase works... thinkge math
+        
+        # angular frequencies
+        self.omega_x = 2 * np.pi * self.frequency_x
+        self.omega_y = 2 * np.pi * self.frequency_y
+    
+    def get_displacement(self, time):
+        # [x, y, z] displacement
+        x = self.amplitude_x * np.sin(self.omega_x * time + self.phase_x) if self.enable_x else 0.0
+        y = self.amplitude_y * np.sin(self.omega_y * time + self.phase_y) if self.enable_y else 0.0
+        return np.array([x, y, 0.0])
+    
+    def get_velocity(self, time):
+        # [vx, vy, vz] velocity
+        vx = self.amplitude_x * self.omega_x * np.cos(self.omega_x * time + self.phase_x) if self.enable_x else 0.0
+        vy = self.amplitude_y * self.omega_y * np.cos(self.omega_y * time + self.phase_y) if self.enable_y else 0.0
+        return np.array([vx, vy, 0.0])
+    
+    def print_info(self, g_magnitude): #js printing the stuff so we know whats going on
+        print(f"\n OSCILLATION SETTINGS")
+        if self.enable_x:
+            Gamma_x = self.amplitude_x * self.omega_x**2 / g_magnitude
+            print(f"X (Horizontal): f={self.frequency_x:.1f} Hz, A={self.amplitude_x*1000:.1f} mm, Γ={Gamma_x:.3f}")
+        else:
+            print(f"X: Disabled")
+        
+        if self.enable_y:
+            Gamma_y = self.amplitude_y * self.omega_y**2 / g_magnitude
+            print(f"Y (Vertical):   f={self.frequency_y:.1f} Hz, A={self.amplitude_y*1000:.1f} mm, Γ={Gamma_y:.3f}")
+        else:
+            print(f"Y: Disabled")
+        
+        if self.enable_x and self.enable_y:
+            if abs(self.phase_x - self.phase_y) < 0.1:
+                print("Pattern: Linear diagonal")
+            elif abs(abs(self.phase_x - self.phase_y) - np.pi/2) < 0.1:
+                print("Pattern: Circular/Elliptical")
+            else:
+                print(f"Pattern: weird random loops over one another (phase diff = {abs(self.phase_x - self.phase_y):.2f} rad)")
 
-def get_box_displacement(time):
-    return oscillation_amplitude * np.sin(omega * time)
+#  global config for the oscillations. .. is this whats going on 
+oscil_config = oscillation_config()
+oscil_config.print_info(abs(g[1]))
 
-def get_box_velocity(time):
-    return oscillation_amplitude * omega * np.cos(omega * time)
+
+
 
 ### FULL-SCREEN BOX (0-20cm graph)
 box_left = 0.01  # 1cm margin
@@ -119,13 +171,13 @@ def READ(file):
 
 
 
+
+
 ### FALLING PARTICLES
 data = np.load("falling_data.npz")
 s_falling = data["s_falling"]
 v_falling = data["v_falling"]
 R_falling = data["R_falling"]
-
-
 
 s = np.vstack([s_falling, box_positions_initial])
 v = np.vstack([v_falling, np.zeros((n_box, 3))])
@@ -135,7 +187,6 @@ n_particles = len(R)
 n_falling = len(R_falling)
 
 print(f"\nPARTICLES num: {n_falling} falling + {n_box} walls = {n_particles} total")
-
 
 Vol = (4.0/3.0) * np.pi * R**3
 m = Vol * rho_particle
@@ -149,7 +200,7 @@ gamma_n = gamma_n_over_R * R
 # .self -> https://www.geeksforgeeks.org/python/self-in-python-class/
 # O(N) instaed of O(N^2)
 
-class SpatialHash: #class so it can store particles in grid “cells” so collisions can be detected ffast,,
+class SpatialHash: #class so it can store particles in grid "cells" so collisions can be detected ffast,,
     def __init__(self, cell_size):
         self.cell_size = cell_size  #the width/height of each grid cell.
         self.grid = {}  #dictionary mapping integer cell coordinates -> lists of particle IDs.
@@ -183,11 +234,11 @@ class SpatialHash: #class so it can store particles in grid “cells” so colli
 max_radius = np.max(R)  # largest particle radius in the system.
 spatial_hash = SpatialHash(cell_size = 3.0 * max_radius)  
 # ensures that:  - The grid cell size must be big enough that a whole particle fits inside one cell. 
-#                   bcs if the cell is too small, the particle gets “split” across cells & lose collision accuracy.
+#                   bcs if the cell is too small, the particle gets "split" across cells & lose collision accuracy.
 ##               - neighbour search is efficient 
 ##               - no risk of missing contactss
 
-print(f"\n Spatial hash cell size: {3.0 * max_radius * 1000:.1f}mm")
+print(f"\nSpatial hash cell size: {3.0 * max_radius * 1000:.1f}mm")
 
 
 
@@ -245,9 +296,9 @@ def get_forces_optimised(s, v, R, m, gamma_n, E_tilde, n_falling, box_velocity, 
                 f_elastic = (2.0/3.0) * E_tilde * np.sqrt(R_eff) * (h_ij ** 1.5) * r_hat
                 
                 # --- Viscous normal damping
-                # velocity of particle or wall: walls have velocity along x = box_velocity
-                v_i = v[i] if i < n_falling else np.array([box_velocity, 0.0, 0.0])
-                v_j = v[j] if j < n_falling else np.array([box_velocity, 0.0, 0.0])
+                # velocity of particle or wall --> walls have velocity = box_velocity (vector)
+                v_i = v[i] if i < n_falling else box_velocity
+                v_j = v[j] if j < n_falling else box_velocity
                 v_rel = v_i - v_j
                 v_rel_normal = np.dot(v_rel, r_hat)
                 f_viscous = -gamma_n[i] * np.sqrt(R_eff * h_ij) * v_rel_normal * r_hat
@@ -334,7 +385,7 @@ def run_simulation():
     
     time = 0.0
     time_history = [0.0]
-    box_velocity = get_box_velocity(time)
+    box_velocity = oscil_config.get_velocity(time)
     F = get_forces_optimised(s_current, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
     a_current = F / m[:, np.newaxis]
     
@@ -351,8 +402,8 @@ def run_simulation():
     for step in range(1, n_steps):
         time = step * t_step #time: Simulation time (physics time, not wall-clock time)
         
-        box_disp = get_box_displacement(time) 
-        box_velocity = get_box_velocity(time)
+        box_disp = oscil_config.get_displacement(time)
+        box_velocity = oscil_config.get_velocity(time)
         
         #progress reporting!! 
         current_time = time_module.time()
@@ -373,9 +424,7 @@ def run_simulation():
                             0.5 * a_current[:n_falling] * t_step**2  #Linear motion 
         # ^^ Update positions!!
         
-
-        # Move box walls
-        s_new[n_falling:] = box_positions_initial + np.array([box_disp, 0.0, 0.0])
+        s_new[n_falling:] = box_positions_initial + box_disp
         
         # Forces at new positions
         F_new = get_forces_optimised(s_new, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
@@ -396,17 +445,24 @@ def run_simulation():
             s_history.append(s_current.copy())
             time_history.append(time)
             frame_counter += 1
+    
+    np.savez(
+        "generated_values.npz", 
+        s_history = np.array(s_history),
+        n_frames = frame_counter,
+        R = R,
+        n_falling = n_falling,
+        time_history = time_history,
 
-        np.savez(
-            "generated_values.npz", 
-            s_history = np.array(s_history),
-            n_frames = frame_counter,
-            R = R,
-            n_falling = n_falling,
-            time_history = time_history,
-            oscillation_amplitude = oscillation_amplitude,
-            oscillation_frequency = oscillation_frequency
-        )
+        oscillation_amplitude_x = oscil_config.amplitude_x,
+        oscillation_amplitude_y = oscil_config.amplitude_y,
+        oscillation_frequency_x = oscil_config.frequency_x,
+        oscillation_frequency_y = oscil_config.frequency_y,
+        oscillation_phase_x = oscil_config.phase_x,
+        oscillation_phase_y = oscil_config.phase_y,
+        oscillation_enable_x = oscil_config.enable_x,
+        oscillation_enable_y = oscil_config.enable_y
+    )
     
     total_time = time_module.time() - start_time
     print(f"\n{'-'*60}")
@@ -419,4 +475,3 @@ def run_simulation():
 ### RUNNING
 if __name__ == "__main__": #Only runs if script executed directly (not imported as module)
     n_frames, s_history = run_simulation() #executes the main simulation loop
- 

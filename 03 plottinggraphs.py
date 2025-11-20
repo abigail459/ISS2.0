@@ -1,3 +1,4 @@
+#plottinggraphs
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -9,23 +10,33 @@ import csv
 from collections import defaultdict
 
 ### DIRECTORY SETUP
-rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
+rootdir = "/Users/liliy/Documents/GitHub/" # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 
 
 ### DATA SETUP
 data = np.load("generated_values.npz")
+
 n_frames = data["n_frames"]
 s_history = data["s_history"]
 R = data["R"]
 n_falling = int(data["n_falling"])
 time_history = data["time_history"]
 
+osc_enable_x = bool(data.get("oscillation_enable_x", False))
+osc_enable_y = bool(data.get("oscillation_enable_y", True))
+
+amp_x = float(data.get("oscillation_amplitude_x", 0.003))
+amp_y = float(data.get("oscillation_amplitude_y", 0.003))
+freq_x = float(data.get("oscillation_frequency_x", 2.0))
+freq_y = float(data.get("oscillation_frequency_y", 2.0))
+
+
 # SIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds
 simulation_duration = 1.0  # ensure it's lesser or equal to one in calculation
-display_fps = 30.0  # 20 fps
+display_fps = 60.0  # 
 numrendered = display_fps*simulation_duration
 
 
@@ -36,8 +47,17 @@ def run_simulation_visually():
         create_frame(s_history[frame], R, frame, n_falling, time_history[frame])
 
 ## FUNCTIONS
-oscillation_amplitude = 0.003  # 3mm
-oscillation_frequency = 2.0  # 2 Hz
+if osc_enable_y and not osc_enable_x:
+    oscillation_amplitude = amp_y
+    oscillation_frequency = freq_y
+elif osc_enable_x and not osc_enable_y:
+    oscillation_amplitude = amp_x
+    oscillation_frequency = freq_x
+else:
+    # if both enabled then show magnitude of vector (?) right....
+    oscillation_amplitude = max(amp_x, amp_y)
+    oscillation_frequency = max(freq_x, freq_y)
+
 omega = 2 * np.pi * oscillation_frequency
 
 def get_box_displacement(time):
