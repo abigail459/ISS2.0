@@ -3,7 +3,7 @@ import random
 import numpy as np
 import os
 
-n_falling = 100
+n_falling = 150
 
 def WRITE(file, data):
     os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS2.0/data")
@@ -18,7 +18,7 @@ def s_gen():
 def v_gen():
     return float(random.uniform(-0.005, 0.003))
 def r_gen():
-    return float(random.uniform(0.004, 0.005))
+    return float(random.uniform(0.002, 0.007))
 
 
 
@@ -29,7 +29,6 @@ R_falling = np.array([r_gen() for _ in range(n_falling)])
 WRITE("s_falling_data.csv", s_falling)
 WRITE("v_falling_data.csv", v_falling)
 WRITE("R_falling_data.csv", R_falling[:, np.newaxis])
-print(n_falling)
 
 np.savez(
     "falling_data.npz", 

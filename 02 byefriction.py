@@ -125,30 +125,6 @@ s_falling = data["s_falling"]
 v_falling = data["v_falling"]
 R_falling = data["R_falling"]
 
-
-# ### FALLING PARTICLES
-# s_falling = np.array([
-#     [0.05, 0.16, 0.0],
-#     [0.08, 0.16, 0.0],
-#     [0.10, 0.16, 0.0],
-#     [0.12, 0.16, 0.0],
-#     [0.15, 0.16, 0.0],
-#     [0.07, 0.13, 0.0],
-#     [0.13, 0.13, 0.0]
-# ])
-
-# v_falling = np.array([
-#     [0.005, 0.0, 0.0],
-#     [-0.005, 0.0, 0.0],
-#     [0.003, 0.0, 0.0],
-#     [-0.003, 0.0, 0.0],
-#     [0.002, 0.0, 0.0],
-#     [0.004, 0.0, 0.0],
-#     [-0.004, 0.0, 0.0]
-# ])
-
-# R_falling = np.array([0.004, 0.0042, 0.0038, 0.0045, 0.004, 0.0043, 0.0041])
-
 s = np.vstack([s_falling, box_positions_initial])
 v = np.vstack([v_falling, np.zeros((n_box, 3))])
 R = np.concatenate([R_falling, box_R])
@@ -439,5 +415,5 @@ def run_simulation():
 
 ### RUNNING
 if __name__ == "__main__": #Only runs if script executed directly (not imported as module)
-    n_frames, s_history = run_simulation() #executes the main simulation loop
+    run_simulation() #executes the main simulation loop
  
