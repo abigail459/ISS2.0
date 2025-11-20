@@ -407,7 +407,7 @@ def run_simulation():
 
         # os.chdir(f"{rootdir}/ISS2.0/data")
         np.savez(
-            "data.npz", 
+            "generated_values.npz", 
             s_history = np.array(s_history),
             n_frames = frame_counter,
             R = R,

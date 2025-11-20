@@ -15,7 +15,7 @@ current_directory = os.getcwd()
 
 
 ### DATA SETUP
-data = np.load("data.npz")
+data = np.load("generated_values.npz")
 n_frames = data["n_frames"]
 s_history = data["s_history"]
 R = data["R"]
@@ -24,13 +24,14 @@ time_history = data["time_history"]
 
 # SIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds
-simulation_duration = 5.0  # 1 second 
+simulation_duration = 1.0  # ensure it's lesser or equal to one in calculation
 display_fps = 30.0  # 20 fps
 numrendered = display_fps*simulation_duration
 
 
 ### SIMULATION
 def run_simulation_visually():
+    print(f"Frames: {numrendered}")
     for frame in range(int(numrendered)+1):
         create_frame(s_history[frame], R, frame, n_falling, time_history[frame])
 
@@ -139,10 +140,9 @@ if __name__ == "__main__": #Only runs if script executed directly (not imported 
     current_directory = os.getcwd()
 
     run_simulation_visually() # executes the main simulation loop
-    create_video('granular_3.mp4', display_fps, current_directory)
+    create_video('granular_1.mp4', display_fps, current_directory)
     
     print("\n" + "-"*60)
     print("DONE!")
-    print(f"Video: granular_3.mp4")
-    print(f"Frames: {numrendered}")
+    print(f"Video: granular_1.mp4")
     print("-"*60)

@@ -3,7 +3,7 @@ import random
 import numpy as np
 import os
 
-n_falling = 7
+n_falling = 100
 
 def WRITE(file, data):
     os.chdir(r"/Users/Abigail/Desktop/Sciences/ISS2.0/data")
@@ -11,19 +11,35 @@ def WRITE(file, data):
         writer = csv.writer(fin)
         writer.writerows(data)
         print(f"data written to '{file}'")
+
+
 def s_gen():
-    return random.uniform(0.015, 2)
+    return float(random.uniform(0.015, 0.185))
 def v_gen():
-    return random.uniform(-0.005, 0.003)
+    return float(random.uniform(-0.005, 0.003))
+def r_gen():
+    return float(random.uniform(0.004, 0.005))
+
 
 
 s_falling = np.array([[s_gen(), s_gen(), 0.0] for _ in range(n_falling)]) # range is no. of particles
 v_falling = np.array([[v_gen(), 0.0, 0.0] for _ in range(n_falling)])
+R_falling = np.array([r_gen() for _ in range(n_falling)])
 
 WRITE("s_falling_data.csv", s_falling)
+WRITE("v_falling_data.csv", v_falling)
+WRITE("R_falling_data.csv", R_falling[:, np.newaxis])
+print(n_falling)
+
+np.savez(
+    "falling_data.npz", 
+    s_falling = s_falling,
+    v_falling = v_falling,
+    R_falling = R_falling
+    )
 
 # print(len(s_falling))
-# s_falling = np.array([
+# s_fallingx = np.array([
 #     [0.05, 0.16, 0.0],
 #     [0.08, 0.16, 0.0],
 #     [0.10, 0.16, 0.0],

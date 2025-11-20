@@ -43,7 +43,7 @@ def contact_key(i, j):
 
 # sIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds 
-simulation_duration = 5.0  # 1 second 
+simulation_duration = 1.0  # 1 second 
 display_fps = 30  # 30 fps
 save_every_n_steps = int(1.0 / (display_fps * t_step))
 
@@ -107,33 +107,47 @@ print(f"Wall particles: {n_box}")
 print(f"  Spacing: {wall_spacing*1000:.0f}mm")
 print(f"  Radius: {box_particle_radius*1000:.0f}mm")
 
+### CSV
+def READ(file):
+    completefile = []
+    with open(file, 'r', newline='') as fin:
+        reader = csv.reader(fin)
+        for row in reader:
+            completefile.append([float(x) for x in row])
 
-
+    return completefile
 
 
 
 ### FALLING PARTICLES
-s_falling = np.array([
-    [0.05, 0.16, 0.0],
-    [0.08, 0.16, 0.0],
-    [0.10, 0.16, 0.0],
-    [0.12, 0.16, 0.0],
-    [0.15, 0.16, 0.0],
-    [0.07, 0.13, 0.0],
-    [0.13, 0.13, 0.0]
-])
+data = np.load("falling_data.npz")
+s_falling = data["s_falling"]
+v_falling = data["v_falling"]
+R_falling = data["R_falling"]
 
-v_falling = np.array([
-    [0.005, 0.0, 0.0],
-    [-0.005, 0.0, 0.0],
-    [0.003, 0.0, 0.0],
-    [-0.003, 0.0, 0.0],
-    [0.002, 0.0, 0.0],
-    [0.004, 0.0, 0.0],
-    [-0.004, 0.0, 0.0]
-])
 
-R_falling = np.array([0.004, 0.0042, 0.0038, 0.0045, 0.004, 0.0043, 0.0041])
+# ### FALLING PARTICLES
+# s_falling = np.array([
+#     [0.05, 0.16, 0.0],
+#     [0.08, 0.16, 0.0],
+#     [0.10, 0.16, 0.0],
+#     [0.12, 0.16, 0.0],
+#     [0.15, 0.16, 0.0],
+#     [0.07, 0.13, 0.0],
+#     [0.13, 0.13, 0.0]
+# ])
+
+# v_falling = np.array([
+#     [0.005, 0.0, 0.0],
+#     [-0.005, 0.0, 0.0],
+#     [0.003, 0.0, 0.0],
+#     [-0.003, 0.0, 0.0],
+#     [0.002, 0.0, 0.0],
+#     [0.004, 0.0, 0.0],
+#     [-0.004, 0.0, 0.0]
+# ])
+
+# R_falling = np.array([0.004, 0.0042, 0.0038, 0.0045, 0.004, 0.0043, 0.0041])
 
 s = np.vstack([s_falling, box_positions_initial])
 v = np.vstack([v_falling, np.zeros((n_box, 3))])
@@ -407,7 +421,7 @@ def run_simulation():
 
         # os.chdir(f"{rootdir}/ISS2.0/data")
         np.savez(
-            "data.npz", 
+            "generated_values.npz", 
             s_history = np.array(s_history),
             n_frames = frame_counter,
             R = R,
