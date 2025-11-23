@@ -7,7 +7,7 @@ import os
 n_falling = 216
 
 def WRITE(file, data):
-    os.chdir(r"/Users/liliy/Documents/GitHub/ISS2.0/data/")
+    os.chdir("/Users/liliy/Documents/GitHub/ISS2.0/data/")
     with open(file, "w", newline='') as fin:
         writer = csv.writer(fin)
         writer.writerows(data)

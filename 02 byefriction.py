@@ -42,7 +42,7 @@ Mu_air = 1.82e-5  # Pa·s,, Dynamic viscosity of air. Used in Stokes drag Eq 2.9
 def contact_key(i, j):
     return (i, j) if i < j else (j, i)
 
-# sIMULATION PARAMETERS
+# SIMULATION PARAMETERS
 t_step = 2e-5  # 20 microseconds 
 simulation_duration = 1.0  # 1s
 display_fps = 60  # 60 fps
@@ -388,6 +388,7 @@ def run_simulation():
     box_velocity = oscil_config.get_velocity(time)
     F = get_forces_optimised(s_current, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
     a_current = F / m[:, np.newaxis]
+    last_saved_time = 0.0
     
     frame_counter = 1
     
@@ -445,8 +446,28 @@ def run_simulation():
             s_history.append(s_current.copy())
             time_history.append(time)
             frame_counter += 1
-    
-    np.savez(
+        
+        if time - last_saved_time >= 20.0: # save every 20 sec of simulation time
+            np.savez( # final save
+                "generated_values.npz", 
+                s_history = np.array(s_history),
+                n_frames = frame_counter,
+                R = R,
+                n_falling = n_falling,
+                time_history = time_history,
+
+                oscillation_amplitude_x = oscil_config.amplitude_x,
+                oscillation_amplitude_y = oscil_config.amplitude_y,
+                oscillation_frequency_x = oscil_config.frequency_x,
+                oscillation_frequency_y = oscil_config.frequency_y,
+                oscillation_phase_x = oscil_config.phase_x,
+                oscillation_phase_y = oscil_config.phase_y,
+                oscillation_enable_x = oscil_config.enable_x,
+                oscillation_enable_y = oscil_config.enable_y
+            )
+            last_saved_time = time
+
+    np.savez( # final save
         "generated_values.npz", 
         s_history = np.array(s_history),
         n_frames = frame_counter,
@@ -466,7 +487,7 @@ def run_simulation():
     
     total_time = time_module.time() - start_time
     print(f"\n{'-'*60}")
-    print(f"Generated {frame_counter} frames")
+    print(f"Generated {frame_counter} frames in {total_time}s")
     print(f"{'-'*60}\n")
     
     return frame_counter, s_history
