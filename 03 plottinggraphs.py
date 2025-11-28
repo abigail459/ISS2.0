@@ -10,7 +10,7 @@ import csv
 from collections import defaultdict
 
 ### DIRECTORY SETUP
-rootdir = "/Users/liliy/Documents/GitHub/" # js change this
+rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 
@@ -31,6 +31,9 @@ amp_x = float(data.get("oscillation_amplitude_x", 0.003))
 amp_y = float(data.get("oscillation_amplitude_y", 0.003))
 freq_x = float(data.get("oscillation_frequency_x", 2.0))
 freq_y = float(data.get("oscillation_frequency_y", 2.0))
+
+plot_min = data["plot_min"]
+plot_max = data["plot_max"]
 
 
 # SIMULATION PARAMETERS
@@ -103,8 +106,8 @@ def create_frame(s_current, R, frame_index, n_falling, time):
                 fontweight='bold', color='white')
     
     # Fixed limits --> full screen
-    ax.set_xlim(0, 0.2)
-    ax.set_ylim(0, 0.2)
+    ax.set_xlim(plot_min, plot_max) # 0.2
+    ax.set_ylim(plot_min, plot_max) # 0.2
     ax.set_xlabel('x (m)', fontsize=11, fontweight='bold')
     ax.set_ylabel('y (m)', fontsize=11, fontweight='bold')
     

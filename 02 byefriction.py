@@ -13,10 +13,12 @@ from collections import defaultdict
 
 
 
-### DIRECTORY SETUP
-rootdir = "/Users/liliy/Documents/GitHub/" # js change this
+### DIRECTORY AND DATA SETUP
+rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
+data = np.load("falling_data.npz")
+
 
 ### PHYSICAL PARAMETERS
 rho_particle = 7630  # kg/m^3, eq 2.1a
@@ -124,13 +126,21 @@ oscil_config.print_info(abs(g[1]))
 
 
 ### FULL-SCREEN BOX (0-20cm graph)
-box_left = 0.01  # 1cm margin
-box_right = 0.19  # 19cm
-box_bottom = 0.01  # 1cm margin
-box_top = 0.19  # 19cm
 
-box_width = box_right - box_left  # 18cm
-box_height = box_top - box_bottom  # 18cm
+# plot_min = data["plot_min"] # js change this
+# plot_max = data["plot_max"] # and changethis too
+
+# centre = ((plot_min+plot_max)/2) # 20cm/2 = 10cm
+
+box_width = data["box_width"]  # 18cm, includes 1cm margin at each side
+box_height = data["box_height"]  # 18cm
+
+# change shape n size in 01
+box_left = data["box_left"] 
+box_right = data["box_right"] 
+box_bottom = data["box_bottom"]
+box_top = data["box_top"]
+
 
 print(f"\nBOX: {box_width*100:.0f}cm × {box_height*100:.0f}cm")
 
@@ -174,7 +184,6 @@ def READ(file):
 
 
 ### FALLING PARTICLES
-data = np.load("falling_data.npz")
 s_falling = data["s_falling"]
 v_falling = data["v_falling"]
 R_falling = data["R_falling"]
@@ -463,7 +472,10 @@ def run_simulation():
                 oscillation_phase_x = oscil_config.phase_x,
                 oscillation_phase_y = oscil_config.phase_y,
                 oscillation_enable_x = oscil_config.enable_x,
-                oscillation_enable_y = oscil_config.enable_y
+                oscillation_enable_y = oscil_config.enable_y,
+
+                plot_min = plot_min,
+                plot_max = plot_max
             )
             last_saved_time = time
 
@@ -482,7 +494,10 @@ def run_simulation():
         oscillation_phase_x = oscil_config.phase_x,
         oscillation_phase_y = oscil_config.phase_y,
         oscillation_enable_x = oscil_config.enable_x,
-        oscillation_enable_y = oscil_config.enable_y
+        oscillation_enable_y = oscil_config.enable_y,
+
+        plot_min = data["plot_min"],
+        plot_max = data["plot_max"]
     )
     
     total_time = time_module.time() - start_time
