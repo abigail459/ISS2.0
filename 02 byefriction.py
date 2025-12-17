@@ -1,4 +1,4 @@
-# ===================== main.py (full) =====================
+# 02withoutfriction.py
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt

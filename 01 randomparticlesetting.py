@@ -1,4 +1,4 @@
-#randomparticlesetting
+#01randomparticlesetting.py
 import csv
 import random
 import numpy as np
