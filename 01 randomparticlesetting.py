@@ -4,16 +4,17 @@ import random
 import numpy as np
 import os
 
-n_falling = 216
+n_falling = 216 #no. of particles! :3
 
 def WRITE(file, data):
-    os.chdir("/Users/liliy/Documents/GitHub/ISS2.0/data/")
+    os.chdir("/Users/liliy/Documents/GitHub/ISS2.0/data/") #change this as needed
     with open(file, "w", newline='') as fin:
         writer = csv.writer(fin)
         writer.writerows(data)
         print(f"data written to '{file}'")
 
 
+# RANGES OF PARTICLE PROPERTIES: (generates randomly between these numbers)
 def s_gen():
     return float(random.uniform(0.015, 0.185))
 def v_gen():
@@ -37,26 +38,3 @@ np.savez(
     v_falling = v_falling,
     R_falling = R_falling
     )
-
-# print(len(s_falling))
-# s_fallingx = np.array([
-#     [0.05, 0.16, 0.0],
-#     [0.08, 0.16, 0.0],
-#     [0.10, 0.16, 0.0],
-#     [0.12, 0.16, 0.0],
-#     [0.15, 0.16, 0.0],
-#     [0.07, 0.13, 0.0],
-#     [0.13, 0.13, 0.0]
-# ])
-
-# v_falling = np.array([
-#     [0.005, 0.0, 0.0],
-#     [-0.005, 0.0, 0.0],
-#     [0.003, 0.0, 0.0],
-#     [-0.003, 0.0, 0.0],
-#     [0.002, 0.0, 0.0],
-#     [0.004, 0.0, 0.0],
-#     [-0.004, 0.0, 0.0]
-# ])
-
-# R_falling = np.array([0.004, 0.0042, 0.0038, 0.0045, 0.004, 0.0043, 0.0041])

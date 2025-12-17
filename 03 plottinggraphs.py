@@ -34,9 +34,9 @@ freq_y = float(data.get("oscillation_frequency_y", 2.0))
 
 
 # SIMULATION PARAMETERS
-t_step = 2e-5  # 20 microseconds
-simulation_duration = 1.0  # ensure it's lesser or equal to one in calculation
-display_fps = 60.0  # 
+t_step = float(data.get("t_step"))  # timestep
+simulation_duration = float(data.get("simulation_duration"))  
+display_fps = float(data.get("display_fps")) #fps
 numrendered = display_fps*simulation_duration
 
 
@@ -80,9 +80,7 @@ def create_frame(s_current, R, frame_index, n_falling, time):
         circle = Circle((x, y), R[i], edgecolor='none', facecolor='#202020', alpha=1.0)
         ax.add_patch(circle)
     
-    # falling particles (coloured)
-    colors = ['#FF3333', '#3333FF', '#33FF33', '#FFAA00', '#FF33FF', '#33FFFF', '#FFFF33']
-    
+    # falling particles (coloured)    
     for i in range(n_falling):
         x, y = s_current[i, 0], s_current[i, 1]
         highcutoff = max(R)-((max(R)-min(R))/3) # relative to size sample
@@ -93,7 +91,6 @@ def create_frame(s_current, R, frame_index, n_falling, time):
            color = "#FF0000"
         else:
             color = "#33FF33"
-#        color = colors[i % len(colors)]
         
         circle = Circle((x, y), R[i], edgecolor='black', facecolor=color, 
                        alpha=0.9, linewidth=2)
