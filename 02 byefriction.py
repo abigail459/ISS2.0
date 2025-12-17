@@ -211,44 +211,48 @@ def get_forces_numba(s, v, R, gamma_n, E_tilde,
     n = len(s)
     F_contact = np.zeros((n, 3)) #2D array with n rows + 3 columns
 
-    for i in prange(n): #parallel range,, outer loop 
-        for j in range(i + 1, n): #inner loop 
-            dx = s[i, 0] - s[j, 0] 
-            dy = s[i, 1] - s[j, 1] 
-            dz = s[i, 2] - s[j, 2] 
+    for i in prange(n): #parallel range,, outer loop. i is the first particle we look at 
+        for j in range(i + 1, n): #inner loop. j is the second particle we look at. 
+            dx = s[i, 0] - s[j, 0] # difference in x coordinates.
+            dy = s[i, 1] - s[j, 1] # '' y
+            dz = s[i, 2] - s[j, 2] # '' z
+                #vector from particle j to i.
 
-            dist_sq = dx*dx + dy*dy + dz*dz
-            contact_threshold_sq = (R[i] + R[j]) ** 2
-            if dist_sq > contact_threshold_sq * 1.01:
+            dist_sq = dx*dx + dy*dy + dz*dz #Squared distance between particles.
+            contact_threshold_sq = (R[i] + R[j]) ** 2 #Squared sum of radii = maximum squared distance for contact.
+            if dist_sq > contact_threshold_sq * 1.01: #If particles are clearly further apart than the contact dist (with a 1% margin),, skip them.
                 continue
-            if dist_sq < 1e-24:
-                continue
+            if dist_sq < 1e-24: #If they are (numerically) on top of each other,, skip to avoid division by zero.
+                continue        # 1e-24 is basically 0 thinkge,, coz if num/0 --> NaN.
 
-            dist = np.sqrt(dist_sq)
-            h_ij = R[i] + R[j] - dist
-            if h_ij <= 0.0:
+            dist = np.sqrt(dist_sq) #Actual distance.
+            h_ij = R[i] + R[j] - dist #overlap (penetration depth) between the spheres.
+            if h_ij <= 0.0: #i f there is no overlap, not in contact.
+                # i, j is a pair. 
                 # reset tangential history when not in contact
                 tang_hist[i, j, 0] = 0.0
                 tang_hist[i, j, 1] = 0.0
                 tang_hist[i, j, 2] = 0.0
                 tang_hist[j, i, 0] = 0.0
                 tang_hist[j, i, 1] = 0.0
-                tang_hist[j, i, 2] = 0.0
-                continue
+                tang_hist[j, i, 2] = 0.0    #reset the stored tangential displacement--> tangential spring starts from 0 next time they touch.
+                continue #skip for this pair :3
 
-            inv_dist = 1.0 / dist
-            r_hat_x = dx * inv_dist
+            inv_dist = 1.0 / dist # inverse of distance.
+
+            # Components of the unit normal vector from j to i.
+            r_hat_x = dx * inv_dist 
             r_hat_y = dy * inv_dist
             r_hat_z = dz * inv_dist
 
-            R_eff = (R[i] * R[j]) / (R[i] + R[j])
+            R_eff = (R[i] * R[j]) / (R[i] + R[j]) # Hertzian effective radius for two spheres in contact.
 
-            # velocities (walls hv box_velocity)
-            if i < n_falling:
+            # velocities
+            if i < n_falling: #if particle in box
                 v_i_x = v[i, 0]
                 v_i_y = v[i, 1]
                 v_i_z = v[i, 2]
-            else:
+            else: #if wall particle 
                 v_i_x = box_velocity[0]
                 v_i_y = box_velocity[1]
                 v_i_z = box_velocity[2]
@@ -262,77 +266,90 @@ def get_forces_numba(s, v, R, gamma_n, E_tilde,
                 v_j_y = box_velocity[1]
                 v_j_z = box_velocity[2]
 
+            # relative velocities
             v_rel_x = v_i_x - v_j_x
             v_rel_y = v_i_y - v_j_y
             v_rel_z = v_i_z - v_j_z
 
+            # scalar projection of relative velocity along the normal direction (normal component).
+            # r_hat is a unit vector pointing from j to i (length 1).
             v_rel_normal = v_rel_x * r_hat_x + v_rel_y * r_hat_y + v_rel_z * r_hat_z
 
-            root_term = np.sqrt(R_eff * h_ij)
-            f_elastic_mag = (2.0/3.0) * E_tilde * np.sqrt(R_eff) * (h_ij ** 1.5)
+            root_term = np.sqrt(R_eff * h_ij) #proportional to contact radius.
+            f_elastic_mag = (2.0/3.0) * E_tilde * np.sqrt(R_eff) * (h_ij ** 1.5) 
             f_viscous_mag = -gamma_n[i] * root_term * v_rel_normal
 
-            f_n_mag = f_elastic_mag + f_viscous_mag
+            f_n_mag = f_elastic_mag + f_viscous_mag #scalar normal force.
 
+            # multiplying by r_hat = vector normal force components, point along the line joining the centres.
             fnx = f_n_mag * r_hat_x
             fny = f_n_mag * r_hat_y
             fnz = f_n_mag * r_hat_z
 
-            # tangential relative velocity
+            #  tangential relative velocity,, how fast particles slide across each other. 
+            # v_rel_normal * r_hat is the normal part of the rel v. 
+            # subtracting that from the total relative velocity leaves only the part perpendicular to the normal
             vtx = v_rel_x - v_rel_normal * r_hat_x
             vty = v_rel_y - v_rel_normal * r_hat_y
             vtz = v_rel_z - v_rel_normal * r_hat_z
 
-            #  tangential spring
+            #  tangential spring,, New displacement = old displacement + (tangential velocity × time step).
+            # if  keep sliding in one direction, xi increases.
             xi_x = tang_hist[i, j, 0] + vtx * t_step
             xi_y = tang_hist[i, j, 1] + vty * t_step
             xi_z = tang_hist[i, j, 2] + vtz * t_step
 
+            # Tangential spring force = −ktξ
             ft_x = -k_t * xi_x
             ft_y = -k_t * xi_y
             ft_z = -k_t * xi_z
 
-            ft_mag = np.sqrt(ft_x*ft_x + ft_y*ft_y + ft_z*ft_z)
-            fn_norm = fnx * r_hat_x + fny * r_hat_y + fnz * r_hat_z
+            ft_mag = np.sqrt(ft_x*ft_x + ft_y*ft_y + ft_z*ft_z) # magnitude of tangential spring force.
+            fn_norm = fnx * r_hat_x + fny * r_hat_y + fnz * r_hat_z # normal component of the normal force (should be ≥ 0 when they’re pushing together).
             if fn_norm < 0.0:
                 fn_norm = 0.0
-            max_ft = mu_t * fn_norm
+            max_ft = mu_t * fn_norm # is the Coulomb friction limit --> proportional to how hard they are pressed together.
 
-            if ft_mag > max_ft and ft_mag > 1e-16:
+            if ft_mag > max_ft and ft_mag > 1e-16: # If the spring wants more force than Coulomb allows (ft_mag > max_ft), 
+                                                   # the contact starts sliding.
+                                                   # Forces are scaled down so their magnitude becomes exactly max_ft.
                 scale = max_ft / ft_mag
                 ft_x *= scale
                 ft_y *= scale
                 ft_z *= scale
-                xi_x = -ft_x / k_t
+                xi_x = -ft_x / k_t # xi --> updated to be consistent with this capped force
                 xi_y = -ft_y / k_t
                 xi_z = -ft_z / k_t
 
-            # remove normal component from ft
+            # remove normal component from ft.. make Ft exactly tangential,, removes any component along r_hat 
             dot_ft_n = ft_x * r_hat_x + ft_y * r_hat_y + ft_z * r_hat_z
             ft_x -= dot_ft_n * r_hat_x
             ft_y -= dot_ft_n * r_hat_y
             ft_z -= dot_ft_n * r_hat_z
 
+            # save the updated tangential displacement for the pair (i,j).
             tang_hist[i, j, 0] = xi_x
             tang_hist[i, j, 1] = xi_y
             tang_hist[i, j, 2] = xi_z
-
-            tang_hist[j, i, 0] = -xi_x
+            # for the opposite ordering (j,i) the displacement is the negative (because the direction is reversed).
+            tang_hist[j, i, 0] = -xi_x 
             tang_hist[j, i, 1] = -xi_y
             tang_hist[j, i, 2] = -xi_z
 
             # rolling resistance ~ mu_r * Fn opposite v_t
-            vt_norm = np.sqrt(vtx*vtx + vty*vty + vtz*vtz)
+            vt_norm = np.sqrt(vtx*vtx + vty*vty + vtz*vtz) # magnitude of tangential relative velocity (how fast they are sliding).
             frx = 0.0
             fry = 0.0
             frz = 0.0
-            if vt_norm > 1e-12 and fn_norm > 0.0:
+            if vt_norm > 1e-12 and fn_norm > 0.0: # If they are sliding (vt_norm big) AND pressed together (fn_norm > 0), 
+                                                  # apply an extra force opposite the sliding direction with magnitude mu_r * Fn.
                 fr_mag = mu_r * fn_norm
                 inv_vt = 1.0 / vt_norm
                 frx = -fr_mag * vtx * inv_vt
                 fry = -fr_mag * vty * inv_vt
                 frz = -fr_mag * vtz * inv_vt
 
+            # add up all: normal + tangential spring/friction + rolling resistance.
             fx = fnx + ft_x + frx
             fy = fny + ft_y + fry
             fz = fnz + ft_z + frz
@@ -341,7 +358,7 @@ def get_forces_numba(s, v, R, gamma_n, E_tilde,
                 F_contact[i, 0] += fx
                 F_contact[i, 1] += fy
                 F_contact[i, 2] += fz
-            if j < n_falling:
+            if j < n_falling: # apply the equal & opposite force to j (Newton’s 3rd law).
                 F_contact[j, 0] -= fx
                 F_contact[j, 1] -= fy
                 F_contact[j, 2] -= fz
