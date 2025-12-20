@@ -94,10 +94,14 @@ oscil_config = oscillation_config()
 oscil_config.print_info(abs(g[1]))
 
 ### FULL-SCREEN BOX (0-20cm graph)
-box_left = 0.01
-box_right = 0.19
-box_bottom = 0.01
-box_top = 0.19
+with open("box_dimensions.csv", "r") as f:
+    reader = csv.DictReader(f)
+    box_info = next(reader)
+
+box_left = float(box_info["box_left"])
+box_right = float(box_info["box_right"])
+box_bottom = float(box_info["box_bottom"])
+box_top = float(box_info["box_top"])
 
 box_width = box_right - box_left
 box_height = box_top - box_bottom
