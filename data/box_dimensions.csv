@@ -1,0 +1,2 @@
+box_left,box_right,box_bottom,box_top,box_width,box_height,layer_height,margin,y_bottom_min,y_bottom_max,y_middle_min,y_middle_max,y_top_min,y_top_max
+0.01,0.19,0.01,0.19,0.18,0.18,0.06,0.005,0.015,0.06499999999999999,0.075,0.125,0.135,0.185

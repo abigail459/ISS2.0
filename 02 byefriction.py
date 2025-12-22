@@ -1,4 +1,4 @@
-#main
+# 02withoutfriction.py
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -9,45 +9,39 @@ from matplotlib.patches import Circle
 import csv
 from collections import defaultdict
 
+from numba import jit, prange
+
 # mu_something --> micro, 10^-6
 
 
-
-### DIRECTORY AND DATA SETUP
-rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
+### DIRECTORY SETUP
+rootdir = "/Users/liliy/Documents/GitHub/"  # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 data = np.load("falling_data.npz")
 
 
 ### PHYSICAL PARAMETERS
-rho_particle = 7630  # kg/m^3, eq 2.1a
-E_tilde = 1e7  # Pa, the effective Young's modulus in Hertzian contact formula.
-               # Lower value -> "softer" particles -> deeper overlaps -> slower/stable simulation.
-gamma_n_over_R = 3e5  #Pa*s/m,, more damping --> less bounce,, controls energy loss during collisions.s
-w_adhesion = 0.0  # J/m^2,, Surface energy density for JKR cohesive contact.
-                  # Set to zero → no sticking forces between particles (non-cohesive granular flow).
-                  # If sticky or very fine powders -> this would be nonzero.
-                  # Eq. 2.4: JKR adhesive force.
-Mu_air = 1.82e-5  # Pa·s,, Dynamic viscosity of air. Used in Stokes drag Eq 2.9. Acts like a slow-down force for moving particles.
+rho_particle = 7630        # kg/m^3, eq. 2.1a
+E_tilde = 1e7              # Pa, the effective Young's modulus in Hertzian contact formula.
+                           # Lower value -> "softer" particles -> deeper overlaps -> slower/stable simulation.
+gamma_n_over_R = 1e5       #Pa*s/m,, more damping --> less bounce,, controls energy loss during collisions.s
+w_adhesion = 0.0           # J/m^2,, Surface energy density for JKR cohesive contact.
+                           # Set to zero → no sticking forces between particles (non-cohesive granular flow).
+Mu_air = 1.82e-5           # Pa*s
 
-# # FRICTION + TANGENTIAL HISTORY
-# k_t = 2e7           # produces tangential (shear) force, F = -k * ξ, tangential stiffness (N/m). 
-#                     # 𝜉 is stored tangential displacement.
-#                     # ^^ Spring constant for tangential deformation (Cundall–Strack model).
-#                     # If too high -> simulation may become "stiff" or jitter.
-# mu_t = 0.5          # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
-# mu_r = 0.01         # rolling friction coefficient (approx.)
-# tangential_history = {}  # keys=(i,j), value = tangential displacement vector (ξ_ij)
+# FRICTION PARAMETERS
+k_t = 2e7                  # tangential stiffness,, produces tangential (shear) force, F = -k * ξ, N/m. 
+mu_t = 0.5                 # # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
+mu_r = 0.01                # rolling friction coefficient
 
-# Helper to unify contact key ordering
-def contact_key(i, j):
-    return (i, j) if i < j else (j, i)
+# gravity
+g = np.array([0.0, -9.8, 0.0])
 
 # SIMULATION PARAMETERS
-t_step = 2e-5  # 20 microseconds 
-simulation_duration = 1.0  # 1s
-display_fps = 60  # 60 fps
+t_step = 2e-5              # 20 microseconds
+simulation_duration = 5.0  # s
+display_fps = 60
 save_every_n_steps = int(1.0 / (display_fps * t_step))
 
 print(f"SETTINGS:")
@@ -56,74 +50,51 @@ print(f"  Duration: {simulation_duration}s")
 print(f"  Total steps: {int(simulation_duration/t_step):,}")
 print(f"  Frames: {int(simulation_duration * display_fps)}")
 
-# gravity
-g = np.array([0.0, -9.8, 0.0])  # gravity m/s² (realistic settling)
-
-
-
-
-
 ### OSCILLATION CONFIGURATION
 class oscillation_config:
     def __init__(self):
-        # Enable/disable the direction of vibration
-        self.enable_x = False   # Horizontal
-        self.enable_y = True   # Vertical
-        
-        self.amplitude_x = 0.0045  # 4.5mm
-        self.amplitude_y = 0.0045   # 3mm
-        
+        # make False/True for which way we want it to vibrate. 
+        self.enable_x = False
+        self.enable_y = True
+
+        self.amplitude_x = 0.0045
+        self.amplitude_y = 0.01
+
         self.frequency_x = 5.0
-        self.frequency_y = 5.0
-        
-        # phase shifts (IN RADIANS BTW!) --> this shd only be used if we know what we're doing tho
+        self.frequency_y = 8.0
+
+        #ignore for now till needed. this should make it go diagonal to diagonal.
         self.phase_x = 0.0
-        self.phase_y = 0.0  # e.g. np.pi/2 for circular move ??????? i think thats how phase works... thinkge math
-        
-        # angular frequencies
+        self.phase_y = 0.0
         self.omega_x = 2 * np.pi * self.frequency_x
         self.omega_y = 2 * np.pi * self.frequency_y
-    
+
     def get_displacement(self, time):
-        # [x, y, z] displacement
         x = self.amplitude_x * np.sin(self.omega_x * time + self.phase_x) if self.enable_x else 0.0
         y = self.amplitude_y * np.sin(self.omega_y * time + self.phase_y) if self.enable_y else 0.0
         return np.array([x, y, 0.0])
-    
+
     def get_velocity(self, time):
-        # [vx, vy, vz] velocity
         vx = self.amplitude_x * self.omega_x * np.cos(self.omega_x * time + self.phase_x) if self.enable_x else 0.0
         vy = self.amplitude_y * self.omega_y * np.cos(self.omega_y * time + self.phase_y) if self.enable_y else 0.0
         return np.array([vx, vy, 0.0])
-    
-    def print_info(self, g_magnitude): #js printing the stuff so we know whats going on
+
+    def print_info(self, g_magnitude):
         print(f"\n OSCILLATION SETTINGS")
         if self.enable_x:
             Gamma_x = self.amplitude_x * self.omega_x**2 / g_magnitude
             print(f"X (Horizontal): f={self.frequency_x:.1f} Hz, A={self.amplitude_x*1000:.1f} mm, Γ={Gamma_x:.3f}")
         else:
-            print(f"X: Disabled")
-        
+            print("X: Disabled")
+
         if self.enable_y:
             Gamma_y = self.amplitude_y * self.omega_y**2 / g_magnitude
             print(f"Y (Vertical):   f={self.frequency_y:.1f} Hz, A={self.amplitude_y*1000:.1f} mm, Γ={Gamma_y:.3f}")
         else:
-            print(f"Y: Disabled")
-        
-        if self.enable_x and self.enable_y:
-            if abs(self.phase_x - self.phase_y) < 0.1:
-                print("Pattern: Linear diagonal")
-            elif abs(abs(self.phase_x - self.phase_y) - np.pi/2) < 0.1:
-                print("Pattern: Circular/Elliptical")
-            else:
-                print(f"Pattern: weird random loops over one another (phase diff = {abs(self.phase_x - self.phase_y):.2f} rad)")
+            print("Y: Disabled")
 
-#  global config for the oscillations. .. is this whats going on 
 oscil_config = oscillation_config()
 oscil_config.print_info(abs(g[1]))
-
-
-
 
 ### FULL-SCREEN BOX (0-20cm graph)
 
@@ -142,13 +113,22 @@ box_bottom = data["box_bottom"]
 box_top = data["box_top"]
 
 
+# with open("box_dimensions.csv", "r") as f:
+#     reader = csv.DictReader(f)
+#     box_info = next(reader)
+
+# box_left = float(box_info["box_left"])
+# box_right = float(box_info["box_right"])
+# box_bottom = float(box_info["box_bottom"])
+# box_top = float(box_info["box_top"])
+
+box_width = box_right - box_left
+box_height = box_top - box_bottom
 print(f"\nBOX: {box_width*100:.0f}cm × {box_height*100:.0f}cm")
 
-# OPTIMISED WALL DENSITY (balance: no gaps + speed)
-wall_spacing = 0.008  # 8mm spacing
-box_particle_radius = 0.005  # 5mm radius (slight overlap = sealed)
+wall_spacing = 0.008
+box_particle_radius = 0.005
 
-# BUILD WALLS
 bottom_x = np.arange(box_left - box_particle_radius, box_right + box_particle_radius, wall_spacing)
 bottom_wall = np.array([[x, box_bottom, 0.0] for x in bottom_x])
 
@@ -176,12 +156,7 @@ def READ(file):
         reader = csv.reader(fin)
         for row in reader:
             completefile.append([float(x) for x in row])
-
     return completefile
-
-
-
-
 
 ### FALLING PARTICLES
 s_falling = data["s_falling"]
@@ -201,37 +176,27 @@ Vol = (4.0/3.0) * np.pi * R**3
 m = Vol * rho_particle
 gamma_n = gamma_n_over_R * R
 
+# Tangential history (full matrix, upper triangle used)
+tangential_history = np.zeros((n_particles, n_particles, 3), dtype=np.float64)
 
 
 
-# ----------------------------- # 
-### SPATIAL HASHING --> what its about: http://mauveweb.co.uk/posts/2011/05/introduction-to-spatial-hashes.html 
-# .self -> https://www.geeksforgeeks.org/python/self-in-python-class/
-# O(N) instaed of O(N^2)
-
-class SpatialHash: #class so it can store particles in grid "cells" so collisions can be detected ffast,,
+# spatial hash that's no longer needed... i think. 
+'''
+class SpatialHash:
     def __init__(self, cell_size):
-        self.cell_size = cell_size  #the width/height of each grid cell.
-        self.grid = {}  #dictionary mapping integer cell coordinates -> lists of particle IDs.
-        #instead of checking every pair of particles, only check pairs in the same or neighbouring cells -> reducing work.
-    
-    def clear(self):  #Called every timestep 
-        self.grid.clear() #wipes the dictionary --> rebuild it with updated positions.
-    
+        self.cell_size = cell_size
+        self.grid = {}
+    def clear(self):
+        self.grid.clear()
     def _hash(self, x, y):
-        return (int(x / self.cell_size), int(y / self.cell_size)) # Returns a tuple: (grid_x, grid_y).
-    
+        return (int(x / self.cell_size), int(y / self.cell_size))
     def insert(self, particle_id, x, y):
         cell = self._hash(x, y)
         if cell not in self.grid:
             self.grid[cell] = []
-        self.grid[cell].append(particle_id)  # Each cell contains the IDs of all particles currently inside that region.
-    
+        self.grid[cell].append(particle_id)
     def get_nearby(self, x, y):
-        # Only check 9 neighboring cells instead of all particles --> Looks at the 3×3 block around one cell: 
-        # 9 cells --> Because in DEM, a particle can only touch others within a radius slightly larger than its diameter. 
-        ###     If cell size ≥ ~2R, then anything outside the 3×3 region is guaranteed too far away to collide -> avoids scanning all N particles.
-    
         cell = self._hash(x, y)
         nearby = []
         for dx in [-1, 0, 1]:
@@ -240,182 +205,245 @@ class SpatialHash: #class so it can store particles in grid "cells" so collision
                 nearby.extend(self.grid.get(neighbor, []))
         return nearby
 
-max_radius = np.max(R)  # largest particle radius in the system.
-spatial_hash = SpatialHash(cell_size = 3.0 * max_radius)  
-# ensures that:  - The grid cell size must be big enough that a whole particle fits inside one cell. 
-#                   bcs if the cell is too small, the particle gets "split" across cells & lose collision accuracy.
-##               - neighbour search is efficient 
-##               - no risk of missing contactss
-
+max_radius = np.max(R)
+spatial_hash = SpatialHash(cell_size=3.0 * max_radius)
 print(f"\nSpatial hash cell size: {3.0 * max_radius * 1000:.1f}mm")
+'''
 
 
 
 
+# === NUMBA CONTACT KERNEL ===
 
-### FORCE CALCULATION
-def get_forces_optimised(s, v, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash):
+@jit (nopython=True, parallel=True, fastmath=True) #fastmath and parallel is basically optimisation for ur CPU 
+    #nopython difference --> https://stackoverflow.com/questions/71510827/numba-when-to-use-nopython-true 
+
+def get_forces_numba(s, v, R, gamma_n, E_tilde,
+                                 n_falling, box_velocity,
+                                 k_t, mu_t, mu_r,
+                                 t_step, tang_hist):
     """
-    Returns F_total (n x 3) array of forces for all particles.
-    This function now includes:
-      - Hertz elastic normal
-      - viscous normal damping
-      - Stokes drag (air)
-      - Cundall-Strack tangential spring + Coulomb cap
-      - approximate rolling resistance (converted to tangential force)
+    Numba --> contact force & fricti on
+    - Hertz normal force
+    - viscous normal damping
+    - Cundall-Strack tangential spring with Coulomb cap
+    -  v. simple rolling resistance
     """
 
     n = len(s)
-    F_total = np.zeros((n, 3)) #empty force array 
-    
-    # Gravity (vectorised for speed) - only applied to falling particles
-    F_total[:n_falling, 1] = m[:n_falling] * g[1]
-    
-    # Air drag (vectorised)
-    F_total[:n_falling] -= 6.0 * np.pi * Mu_air * R[:n_falling, np.newaxis] * v[:n_falling]
-    
-    # Build spatial hash
-    spatial_hash.clear()
-    for i in range(n):
-        spatial_hash.insert(i, s[i, 0], s[i, 1])
-    
-    # Contact forces - ONLY CHECK NEARBY PARTICLES!
-    for i in range(n):
-        nearby = spatial_hash.get_nearby(s[i, 0], s[i, 1])
-        
-        for j in nearby:
-            if i >= j:  # Skip duplicates
+    F_contact = np.zeros((n, 3)) #2D array with n rows + 3 columns
+
+    for i in prange(n): #parallel range,, outer loop. i is the first particle we look at 
+        for j in range(i + 1, n): #inner loop. j is the second particle we look at. 
+            dx = s[i, 0] - s[j, 0] # difference in x coordinates.
+            dy = s[i, 1] - s[j, 1] # '' y
+            dz = s[i, 2] - s[j, 2] # '' z
+                #vector from particle j to i.
+
+            dist_sq = dx*dx + dy*dy + dz*dz #Squared distance between particles.
+            contact_threshold_sq = (R[i] + R[j]) ** 2 #Squared sum of radii = maximum squared distance for contact.
+            if dist_sq > contact_threshold_sq * 1.01: #If particles are clearly further apart than the contact dist (with a 1% margin),, skip them.
                 continue
-            
-            r_ij = s[i] - s[j]
-            dist_sq = np.dot(r_ij, r_ij)  # Faster than norm
-            
-            if dist_sq < 1e-24:
-                continue
-            
-            dist = np.sqrt(dist_sq)
-            h_ij = R[i] + R[j] - dist
-            
-            if h_ij > 0:  # Contact!
-                # normal unit vector from j to i
-                r_hat = r_ij / dist
-                R_eff = (R[i] * R[j]) / (R[i] + R[j])
-                
-                # --- Elastic (Hertz)
-                f_elastic = (2.0/3.0) * E_tilde * np.sqrt(R_eff) * (h_ij ** 1.5) * r_hat
-                
-                # --- Viscous normal damping
-                # velocity of particle or wall --> walls have velocity = box_velocity (vector)
-                v_i = v[i] if i < n_falling else box_velocity
-                v_j = v[j] if j < n_falling else box_velocity
-                v_rel = v_i - v_j
-                v_rel_normal = np.dot(v_rel, r_hat)
-                f_viscous = -gamma_n[i] * np.sqrt(R_eff * h_ij) * v_rel_normal * r_hat
-                
-                # Combined normal contact vector
-                f_normal = f_elastic + f_viscous
-                
-                # --- Tangential (Cundall-Strack)
-                # tangential relative velocity
-                v_t = v_rel - v_rel_normal * r_hat
-                
-                key = contact_key(i, j)
-                # if key not in tangential_history:
-                #     tangential_history[key] = np.zeros(3)
-                
-                # # Integrate tangential spring: xi <- xi + v_t * dt
-                # xi_t = tangential_history[key] + v_t * t_step
-                # tangential_history[key] = xi_t.copy()
-                
-                # Raw tangential force from spring
-                # f_t_raw = - k_t * xi_t
-                
-                # Normal force magnitude for Coulomb limit
-                # Use the normal component (positive compressive); clamp to small positive
-                f_n_mag = np.dot(f_normal, r_hat)
-                if f_n_mag < 0:
-                    # if tensile (unlikely without cohesion), use small positive to avoid zero division
-                    f_n_mag = 1e-12
-                else:
-                    f_n_mag = max(f_n_mag, 1e-12)
-                
-                # f_t_mag = np.linalg.norm(f_t_raw)
-                # if f_t_mag > mu_t * f_n_mag:
-                #     # sliding: scale tangential force to Coulomb limit
-                #     f_t = f_t_raw * (mu_t * f_n_mag / f_t_mag)
-                #     # update stored xi consistently: xi = -f_t / k_t
-                #     tangential_history[key] = -f_t / k_t
-                # else:
-                #     # sticking: keep spring force
-                #     f_t = f_t_raw
-                
-                # numerical cleanup: remove any tiny normal component in f_t
-                # f_t = f_t - np.dot(f_t, r_hat) * r_hat
-                
-                # --- Rolling resistance (approximate)
-                # We don't track angular velocity of spheres; approximate rolling resistance
-                # as a tangential force opposing v_t with magnitude μ_r * F_n
-                # v_t_norm = np.linalg.norm(v_t)
-                # if v_t_norm > 1e-12:
-                #     f_roll_mag = mu_r * f_n_mag
-                #     f_roll_dir = -v_t / v_t_norm
-                #     f_roll = f_roll_mag * f_roll_dir
-                # else:
-                #     f_roll = np.zeros(3)
-                
-                # Total contact force = normal + tangential + rolling
-                f_contact = f_normal
-                
-                # Only falling particles respond
-                if i < n_falling:
-                    F_total[i] += f_contact
-                if j < n_falling:
-                    F_total[j] -= f_contact
+            if dist_sq < 1e-24: #If they are (numerically) on top of each other,, skip to avoid division by zero.
+                continue        # 1e-24 is basically 0 thinkge,, coz if num/0 --> NaN.
+
+            dist = np.sqrt(dist_sq) #Actual distance.
+            h_ij = R[i] + R[j] - dist #overlap (penetration depth) between the spheres.
+            if h_ij <= 0.0: #i f there is no overlap, not in contact.
+                # i, j is a pair. 
+                # reset tangential history when not in contact
+                tang_hist[i, j, 0] = 0.0
+                tang_hist[i, j, 1] = 0.0
+                tang_hist[i, j, 2] = 0.0
+                tang_hist[j, i, 0] = 0.0
+                tang_hist[j, i, 1] = 0.0
+                tang_hist[j, i, 2] = 0.0    #reset the stored tangential displacement--> tangential spring starts from 0 next time they touch.
+                continue #skip for this pair :3
+
+            inv_dist = 1.0 / dist # inverse of distance.
+
+            # Components of the unit normal vector from j to i.
+            r_hat_x = dx * inv_dist 
+            r_hat_y = dy * inv_dist
+            r_hat_z = dz * inv_dist
+
+            R_eff = (R[i] * R[j]) / (R[i] + R[j]) # Hertzian effective radius for two spheres in contact.
+
+            # velocities
+            if i < n_falling: #if particle in box
+                v_i_x = v[i, 0]
+                v_i_y = v[i, 1]
+                v_i_z = v[i, 2]
+            else: #if wall particle 
+                v_i_x = box_velocity[0]
+                v_i_y = box_velocity[1]
+                v_i_z = box_velocity[2]
+
+            if j < n_falling:
+                v_j_x = v[j, 0]
+                v_j_y = v[j, 1]
+                v_j_z = v[j, 2]
             else:
-                # contact ended: remove tangential history to avoid memory growth and reset spring
-                key = contact_key(i, j)
-                # if key in tangential_history:
-                #     del tangential_history[key]
-    
+                v_j_x = box_velocity[0]
+                v_j_y = box_velocity[1]
+                v_j_z = box_velocity[2]
+
+            # relative velocities
+            v_rel_x = v_i_x - v_j_x
+            v_rel_y = v_i_y - v_j_y
+            v_rel_z = v_i_z - v_j_z
+
+            # scalar projection of relative velocity along the normal direction (normal component).
+            # r_hat is a unit vector pointing from j to i (length 1).
+            v_rel_normal = v_rel_x * r_hat_x + v_rel_y * r_hat_y + v_rel_z * r_hat_z
+
+            root_term = np.sqrt(R_eff * h_ij) #proportional to contact radius.
+            f_elastic_mag = (2.0/3.0) * E_tilde * np.sqrt(R_eff) * (h_ij ** 1.5) 
+            f_viscous_mag = -gamma_n[i] * root_term * v_rel_normal
+
+            f_n_mag = f_elastic_mag + f_viscous_mag #scalar normal force.
+
+            # multiplying by r_hat = vector normal force components, point along the line joining the centres.
+            fnx = f_n_mag * r_hat_x
+            fny = f_n_mag * r_hat_y
+            fnz = f_n_mag * r_hat_z
+
+            #  tangential relative velocity,, how fast particles slide across each other. 
+            # v_rel_normal * r_hat is the normal part of the rel v. 
+            # subtracting that from the total relative velocity leaves only the part perpendicular to the normal
+            vtx = v_rel_x - v_rel_normal * r_hat_x
+            vty = v_rel_y - v_rel_normal * r_hat_y
+            vtz = v_rel_z - v_rel_normal * r_hat_z
+
+            #  tangential spring,, New displacement = old displacement + (tangential velocity × time step).
+            # if  keep sliding in one direction, xi increases.
+            xi_x = tang_hist[i, j, 0] + vtx * t_step
+            xi_y = tang_hist[i, j, 1] + vty * t_step
+            xi_z = tang_hist[i, j, 2] + vtz * t_step
+
+            # Tangential spring force = −ktξ
+            ft_x = -k_t * xi_x
+            ft_y = -k_t * xi_y
+            ft_z = -k_t * xi_z
+
+            ft_mag = np.sqrt(ft_x*ft_x + ft_y*ft_y + ft_z*ft_z) # magnitude of tangential spring force.
+            fn_norm = fnx * r_hat_x + fny * r_hat_y + fnz * r_hat_z # normal component of the normal force (should be ≥ 0 when they’re pushing together).
+            if fn_norm < 0.0:
+                fn_norm = 0.0
+            max_ft = mu_t * fn_norm # is the Coulomb friction limit --> proportional to how hard they are pressed together.
+
+            if ft_mag > max_ft and ft_mag > 1e-16: # If the spring wants more force than Coulomb allows (ft_mag > max_ft), 
+                                                   # the contact starts sliding.
+                                                   # Forces are scaled down so their magnitude becomes exactly max_ft.
+                scale = max_ft / ft_mag
+                ft_x *= scale
+                ft_y *= scale
+                ft_z *= scale
+                xi_x = -ft_x / k_t # xi --> updated to be consistent with this capped force
+                xi_y = -ft_y / k_t
+                xi_z = -ft_z / k_t
+
+            # remove normal component from ft.. make Ft exactly tangential,, removes any component along r_hat 
+            dot_ft_n = ft_x * r_hat_x + ft_y * r_hat_y + ft_z * r_hat_z
+            ft_x -= dot_ft_n * r_hat_x
+            ft_y -= dot_ft_n * r_hat_y
+            ft_z -= dot_ft_n * r_hat_z
+
+            # save the updated tangential displacement for the pair (i,j).
+            tang_hist[i, j, 0] = xi_x
+            tang_hist[i, j, 1] = xi_y
+            tang_hist[i, j, 2] = xi_z
+            # for the opposite ordering (j,i) the displacement is the negative (because the direction is reversed).
+            tang_hist[j, i, 0] = -xi_x 
+            tang_hist[j, i, 1] = -xi_y
+            tang_hist[j, i, 2] = -xi_z
+
+            # rolling resistance ~ mu_r * Fn opposite v_t
+            vt_norm = np.sqrt(vtx*vtx + vty*vty + vtz*vtz) # magnitude of tangential relative velocity (how fast they are sliding).
+            frx = 0.0
+            fry = 0.0
+            frz = 0.0
+            if vt_norm > 1e-12 and fn_norm > 0.0: # If they are sliding (vt_norm big) AND pressed together (fn_norm > 0), 
+                                                  # apply an extra force opposite the sliding direction with magnitude mu_r * Fn.
+                fr_mag = mu_r * fn_norm
+                inv_vt = 1.0 / vt_norm
+                frx = -fr_mag * vtx * inv_vt
+                fry = -fr_mag * vty * inv_vt
+                frz = -fr_mag * vtz * inv_vt
+
+            # add up all: normal + tangential spring/friction + rolling resistance.
+            fx = fnx + ft_x + frx
+            fy = fny + ft_y + fry
+            fz = fnz + ft_z + frz
+
+            if i < n_falling:
+                F_contact[i, 0] += fx
+                F_contact[i, 1] += fy
+                F_contact[i, 2] += fz
+            if j < n_falling: # apply the equal & opposite force to j (Newton’s 3rd law).
+                F_contact[j, 0] -= fx
+                F_contact[j, 1] -= fy
+                F_contact[j, 2] -= fz
+
+    return F_contact
+
+def get_forces_optimised(s, v, R, m, gamma_n, E_tilde, n_falling, box_velocity):
+    n = len(s)
+    F_total = np.zeros((n, 3))
+
+    # Gravity
+    F_total[:n_falling, 1] = m[:n_falling] * g[1]
+
+    # Air drag
+    F_total[:n_falling] -= 6.0 * np.pi * Mu_air * R[:n_falling, np.newaxis] * v[:n_falling]
+
+    # Contact forces --> Numba
+    F_contact = get_forces_numba(
+        s, v, R, gamma_n, E_tilde,
+        n_falling, box_velocity,
+        k_t, mu_t, mu_r,
+        t_step, tangential_history
+    )
+    F_total += F_contact
+
     return F_total
 
 
 
 
-### SIMULATION LOOP
+# === SIMULATION LOOP === 
+
 def run_simulation():
     print("\n" + "-"*60)
     print("GRANULAR CONVECTION SIMULATION")
     print("-"*60)
-    
+
     s_current = s.copy()
     v_current = v.copy()
     s_history = [s_current.copy()]
-    
+
     time = 0.0
     time_history = [0.0]
     box_velocity = oscil_config.get_velocity(time)
-    F = get_forces_optimised(s_current, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
+    F = get_forces_optimised(s_current, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity)
     a_current = F / m[:, np.newaxis]
     last_saved_time = 0.0
-    
+
     frame_counter = 1
-    
-    n_steps = int(simulation_duration / t_step) #iterations
-    
-    import time as time_module  # avoid meddling w our actual values
-    start_time = time_module.time() # actual seconds elapsed on computer
-    last_print = start_time # records when simulation started
-    
+    n_steps = int(simulation_duration / t_step)
+
+    import time as time_module
+    start_time = time_module.time()
+    last_print = start_time
+
     print("\nRunning simulation...")
-    
+
     for step in range(1, n_steps):
-        time = step * t_step #time: Simulation time (physics time, not wall-clock time)
-        
+        time = step * t_step
+
         box_disp = oscil_config.get_displacement(time)
         box_velocity = oscil_config.get_velocity(time)
-        
-        #progress reporting!! 
+
         current_time = time_module.time()
         if current_time - last_print >= 10.0:
             elapsed = current_time - start_time
@@ -424,90 +452,73 @@ def run_simulation():
             eta = (n_steps - step) / steps_per_sec
             print(f"  {progress:.1f}% | {elapsed:.0f}s elapsed | {eta:.0f}s remaining")
             last_print = current_time
-        
-        # Verlet integration ! 
-        ## a numerical method used in physics simulations to calculate the position of objects over time 
-        ## by using their current and previous positions, without explicitly needing velocity. 
 
-        s_new = s_current.copy() # current position of particle
+        s_new = s_current.copy()
         s_new[:n_falling] = s_current[:n_falling] + v_current[:n_falling] * t_step + \
-                            0.5 * a_current[:n_falling] * t_step**2  #Linear motion 
-        # ^^ Update positions!!
-        
+                            0.5 * a_current[:n_falling] * t_step**2
+
         s_new[n_falling:] = box_positions_initial + box_disp
-        
-        # Forces at new positions
-        F_new = get_forces_optimised(s_new, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity, spatial_hash)
-            # ^^ update v coz positions are at time t+Δt, but velocities still at time t
-            # implied to update v after s in eq 2.2
+
+        F_new = get_forces_optimised(s_new, v_current, R, m, gamma_n, E_tilde, n_falling, box_velocity)
         a_new = F_new / m[:, np.newaxis]
-        
-        # Update velocities
+
         v_new = v_current.copy()
         v_new[:n_falling] = v_current[:n_falling] + 0.5 * (a_current[:n_falling] + a_new[:n_falling]) * t_step
-        
+
         s_current = s_new
         v_current = v_new
         a_current = a_new
-        
-        # Save frame
+
         if step % save_every_n_steps == 0:
             s_history.append(s_current.copy())
             time_history.append(time)
             frame_counter += 1
-        
-        if time - last_saved_time >= 20.0: # save every 20 sec of simulation time
-            np.savez( # final save
-                "generated_values.npz", 
-                s_history = np.array(s_history),
-                n_frames = frame_counter,
-                R = R,
-                n_falling = n_falling,
-                time_history = time_history,
 
-                oscillation_amplitude_x = oscil_config.amplitude_x,
-                oscillation_amplitude_y = oscil_config.amplitude_y,
-                oscillation_frequency_x = oscil_config.frequency_x,
-                oscillation_frequency_y = oscil_config.frequency_y,
-                oscillation_phase_x = oscil_config.phase_x,
-                oscillation_phase_y = oscil_config.phase_y,
-                oscillation_enable_x = oscil_config.enable_x,
-                oscillation_enable_y = oscil_config.enable_y,
-
-                plot_min = plot_min,
-                plot_max = plot_max
+        if time - last_saved_time >= 20.0:
+            np.savez(
+                "generated_values.npz",
+                s_history=np.array(s_history),
+                n_frames=frame_counter,
+                R=R,
+                n_falling=n_falling,
+                time_history=time_history,
+                oscillation_amplitude_x=oscil_config.amplitude_x,
+                oscillation_amplitude_y=oscil_config.amplitude_y,
+                oscillation_frequency_x=oscil_config.frequency_x,
+                oscillation_frequency_y=oscil_config.frequency_y,
+                oscillation_phase_x=oscil_config.phase_x,
+                oscillation_phase_y=oscil_config.phase_y,
+                oscillation_enable_x=oscil_config.enable_x,
+                oscillation_enable_y=oscil_config.enable_y
             )
             last_saved_time = time
 
-    np.savez( # final save
-        "generated_values.npz", 
-        s_history = np.array(s_history),
-        n_frames = frame_counter,
-        R = R,
-        n_falling = n_falling,
-        time_history = time_history,
-
-        oscillation_amplitude_x = oscil_config.amplitude_x,
-        oscillation_amplitude_y = oscil_config.amplitude_y,
-        oscillation_frequency_x = oscil_config.frequency_x,
-        oscillation_frequency_y = oscil_config.frequency_y,
-        oscillation_phase_x = oscil_config.phase_x,
-        oscillation_phase_y = oscil_config.phase_y,
-        oscillation_enable_x = oscil_config.enable_x,
-        oscillation_enable_y = oscil_config.enable_y,
-
-        plot_min = data["plot_min"],
-        plot_max = data["plot_max"]
+    np.savez(
+        "generated_values.npz",
+        s_history=np.array(s_history),
+        n_frames=frame_counter,
+        R=R,
+        n_falling=n_falling,
+        time_history=time_history,
+        oscillation_amplitude_x=oscil_config.amplitude_x,
+        oscillation_amplitude_y=oscil_config.amplitude_y,
+        oscillation_frequency_x=oscil_config.frequency_x,
+        oscillation_frequency_y=oscil_config.frequency_y,
+        oscillation_phase_x=oscil_config.phase_x,
+        oscillation_phase_y=oscil_config.phase_y,
+        oscillation_enable_x=oscil_config.enable_x,
+        oscillation_enable_y=oscil_config.enable_y,
+        t_step = t_step,
+        simulation_duration = simulation_duration, 
+        display_fps = display_fps
     )
-    
+
     total_time = time_module.time() - start_time
     print(f"\n{'-'*60}")
     print(f"Generated {frame_counter} frames in {total_time}s")
     print(f"{'-'*60}\n")
-    
+
     return frame_counter, s_history
 
-
-### RUNNING
-if __name__ == "__main__": #Only runs if script executed directly (not imported as module)
-    n_frames, s_history = run_simulation() #executes the main simulation loop
+if __name__ == "__main__":
+    n_frames, s_history = run_simulation()
