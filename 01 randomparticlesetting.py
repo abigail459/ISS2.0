@@ -6,29 +6,29 @@ import os
 
 n_falling = 216  # no. of particles! :3
 
-plot_min = 0.0 # js change this
-plot_max = 0.20 # and changethis too 
+# plot_min = 0.0 # js change this
+# plot_max = 0.20 # and changethis too 
 
-centre = ((plot_min+plot_max)/2) # 20cm/2 = 10cm
+# centre = ((plot_min+plot_max)/2) # 20cm/2 = 10cm
 
-# square shaped box too
-box_width = 0.10  # 1.8cm
-box_height = 0.10
+# # square shaped box too
+# box_width = 0.10  # 1.8cm
+# box_height = 0.10
 
-# for square shaped boxes. for other shapes, change centres and such accordingly
-box_min = centre - box_width/2 # 10cm - 18cm/2 = 1cm mark. 
-box_max = centre + box_width/2  
+# # for square shaped boxes. for other shapes, change centres and such accordingly
+# box_min = centre - box_width/2 # 10cm - 18cm/2 = 1cm mark. 
+# box_max = centre + box_width/2  
 
+
+os.chdir("/Users/Abigail/Desktop/Sciences/ISS2.0/data/")
 
 def WRITE(file, data):
-    os.chdir("/Users/Abigail/Desktop/Sciences/ISS2.0/data/")
     with open(file, "w", newline='') as fin:
         writer = csv.writer(fin)
         writer.writerows(data)
         print(f"data written to '{file}'")
 
 def WRITE_DICT(file, data_dict):
-    os.chdir("/Users/liliy/Documents/GitHub/ISS2.0/data/")
     with open(file, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(data_dict.keys())   # header
@@ -155,32 +155,32 @@ np.savez(
     s_falling = s_falling,
     v_falling = v_falling,
     R_falling = R_falling,
-    plot_min = plot_min,
-    plot_max = plot_max,
-    box_width = box_width,
-    box_height = box_height,
-    box_left = box_min,
-    box_right = box_max,
-    box_bottom = box_min,
-    box_top = box_max
+    # plot_min = plot_min,
+    # plot_max = plot_max,
+    # box_width = box_width,
+    # box_height = box_height,
+    # box_left = box_min,
+    # box_right = box_max,
+    # box_bottom = box_min,
+    # box_top = box_max
     )
 
-# box_info = {
-#     "box_left": box_left,
-#     "box_right": box_right,
-#     "box_bottom": box_bottom,
-#     "box_top": box_top,
-#     "box_width": box_width,
-#     "box_height": box_height,
-#     "layer_height": layer_height,
-#     "margin": margin,
-#     "y_bottom_min": y_bottom[0],
-#     "y_bottom_max": y_bottom[1],
-#     "y_middle_min": y_middle[0],
-#     "y_middle_max": y_middle[1],
-#     "y_top_min": y_top[0],
-#     "y_top_max": y_top[1]
-# }
+box_info = {
+    "box_left": box_left,
+    "box_right": box_right,
+    "box_bottom": box_bottom,
+    "box_top": box_top,
+    "box_width": box_width,
+    "box_height": box_height,
+    "layer_height": layer_height,
+    "margin": margin,
+    "y_bottom_min": y_bottom[0],
+    "y_bottom_max": y_bottom[1],
+    "y_middle_min": y_middle[0],
+    "y_middle_max": y_middle[1],
+    "y_top_min": y_top[0],
+    "y_top_max": y_top[1]
+}
 
 
-# WRITE_DICT("box_dimensions.csv", box_info)
+WRITE_DICT("box_dimensions.csv", box_info)

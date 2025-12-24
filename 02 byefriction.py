@@ -15,7 +15,7 @@ from numba import jit, prange
 
 
 ### DIRECTORY SETUP
-rootdir = "/Users/liliy/Documents/GitHub/"  # js change this
+rootdir = "/Users/Abigail/Desktop/Sciences"  # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 data = np.load("falling_data.npz")
@@ -57,11 +57,19 @@ class oscillation_config:
         self.enable_x = False
         self.enable_y = True
 
+        '''
+        to ensure Γ ≈ 1.5 to 3.0, where convection and segregation happen
+        however, diff shaking has different ranges
+        human: Γ ≈ 0.5-3.0; ~2-6Hz; ~5-30mm
+        lab: Γ: ~1-15; ~5-100 Hz; ~0.1-10 mm
+        industrial: ~10-100+; ~10-1000 Hz; ~0.01-5 mm
+        '''
+        
         self.amplitude_x = 0.0045
-        self.amplitude_y = 0.01
+        self.amplitude_y = 0.015 # arnd 2–15mm (def: 0.004m)
 
         self.frequency_x = 5.0
-        self.frequency_y = 8.0
+        self.frequency_y = 6.0 # arnd 5-20  (def: 12.0Hz)
 
         #ignore for now till needed. this should make it go diagonal to diagonal.
         self.phase_x = 0.0
@@ -103,24 +111,24 @@ oscil_config.print_info(abs(g[1]))
 
 # centre = ((plot_min+plot_max)/2) # 20cm/2 = 10cm
 
-box_width = data["box_width"]  # 18cm, includes 1cm margin at each side
-box_height = data["box_height"]  # 18cm
+# box_width = data["box_width"]  # 18cm, includes 1cm margin at each side
+# box_height = data["box_height"]  # 18cm
 
-# change shape n size in 01
-box_left = data["box_left"] 
-box_right = data["box_right"] 
-box_bottom = data["box_bottom"]
-box_top = data["box_top"]
+# # change shape n size in 01
+# box_left = data["box_left"] 
+# box_right = data["box_right"] 
+# box_bottom = data["box_bottom"]
+# box_top = data["box_top"]
 
 
-# with open("box_dimensions.csv", "r") as f:
-#     reader = csv.DictReader(f)
-#     box_info = next(reader)
+with open("box_dimensions.csv", "r") as f:
+    reader = csv.DictReader(f)
+    box_info = next(reader)
 
-# box_left = float(box_info["box_left"])
-# box_right = float(box_info["box_right"])
-# box_bottom = float(box_info["box_bottom"])
-# box_top = float(box_info["box_top"])
+box_left = float(box_info["box_left"])
+box_right = float(box_info["box_right"])
+box_bottom = float(box_info["box_bottom"])
+box_top = float(box_info["box_top"])
 
 box_width = box_right - box_left
 box_height = box_top - box_bottom
