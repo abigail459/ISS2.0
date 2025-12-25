@@ -66,10 +66,10 @@ class oscillation_config:
         '''
         
         self.amplitude_x = 0.0045
-        self.amplitude_y = 0.015 # arnd 2–15mm (def: 0.004m)
+        self.amplitude_y = 0.010 # arnd 2–15mm (def: 0.004m)
 
         self.frequency_x = 5.0
-        self.frequency_y = 6.0 # arnd 5-20  (def: 12.0Hz)
+        self.frequency_y = 5.89 # arnd 5-20  (def: 12.0Hz)
 
         #ignore for now till needed. this should make it go diagonal to diagonal.
         self.phase_x = 0.0

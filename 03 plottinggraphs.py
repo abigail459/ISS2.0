@@ -8,6 +8,9 @@ import os
 from matplotlib.patches import Circle
 import csv
 from collections import defaultdict
+from matplotlib.animation import FuncAnimation
+
+
 
 ### DIRECTORY SETUP
 rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
@@ -36,19 +39,12 @@ freq_y = float(data.get("oscillation_frequency_y", 2.0))
 # plot_max = data["plot_max"]
 
 
-# SIMULATION PARAMETERS
+### SIMULATION PARAMETERS
 t_step = float(data.get("t_step"))  # timestep
 simulation_duration = float(data.get("simulation_duration"))  
 display_fps = float(data.get("display_fps")) #fps
 numrendered = display_fps*simulation_duration
-
-
-### SIMULATION
-def run_simulation_visually():
-    print(f"Frames: {numrendered}")
-    for frame in range(int(numrendered)+1):
-        create_frame(s_history[frame], R, frame, n_falling, time_history[frame])
-
+    
 ## FUNCTIONS
 if osc_enable_y and not osc_enable_x:
     oscillation_amplitude = amp_y
@@ -69,108 +65,129 @@ def get_box_displacement(time):
 def get_box_velocity(time):
     return oscillation_amplitude * omega * np.cos(omega * time)
 
-
-### VISUALISATION 
-def create_frame(s_current, R, frame_index, n_falling, time):
+### INITIALISATION
+def initial_render(R, n_falling): # render constant variables first, then update movement using FuncAnimation
     fig = plt.figure(figsize=(6, 6), dpi=80)  # Smaller/lower DPI = faster
+
     ax = fig.add_subplot(111)
     ax.set_aspect('equal')
     ax.set_facecolor('#e8e8e8')
-    
-    # box walls (gray circles)
-    for i in range(n_falling, min(len(R), s_current.shape[0])):
-        x, y = s_current[i, 0], s_current[i, 1]
-        circle = Circle((x, y), R[i], edgecolor='none', facecolor='#202020', alpha=1.0)
-        ax.add_patch(circle)
-    
-    # falling particles (coloured)    
-    for i in range(n_falling):
-        x, y = s_current[i, 0], s_current[i, 1]
-        highcutoff = max(R)-((max(R)-min(R))/3) # relative to size sample
-        lowcutoff = min(R)+((max(R)-min(R))/3)
-        if R[i] > highcutoff:
-            color = "#004CFF"
-        elif R[i] < lowcutoff:
-           color = "#FF0000"
-        else:
-            color = "#33FF33"
-        
-        circle = Circle((x, y), R[i], edgecolor='black', facecolor=color, 
-                       alpha=0.9, linewidth=2)
-        ax.add_patch(circle)
-        
-        ax.text(x, y, str(i+1), ha='center', va='center', fontsize=9, 
-                fontweight='bold', color='white')
-    
     # Fixed limits --> full screen
     ax.set_xlim(0, 0.2) # 0.2
     ax.set_ylim(0, 0.2) # 0.2
     ax.set_xlabel('x (m)', fontsize=11, fontweight='bold')
     ax.set_ylabel('y (m)', fontsize=11, fontweight='bold')
     
-    # Title
-    box_disp = get_box_displacement(time)
-    ax.set_title(f'Time: {time:.2f}s | Oscillation: {box_disp*1000:.1f}mm', 
-                fontsize=12, fontweight='bold', pad=10)
-    
+
+    highcutoff = np.max(R)-((np.max(R)-np.min(R))/3) # relative to size sample, computed once for later use
+    lowcutoff = np.min(R)+((np.max(R)-np.min(R))/3)
+
+    circles = []
+    texts = []
+
+    # falling particles (coloured)    
+    for i in range(n_falling):
+        circle = Circle((0, 0), R[i], edgecolor='black', alpha=0.9, linewidth=2)
+        ax.add_patch(circle)
+        circles.append(circle)
+        
+        text = ax.text(0, 0, str(i+1), ha='center', va='center', fontsize=9, 
+                fontweight='bold', color='white')
+        texts.append(text)
+
+    # box walls (gray circles)
+    for i in range(n_falling, len(R)):
+        # x, y = s_current[i, 0], s_current[i, 1]
+        circle = Circle((0, 0), R[i], edgecolor='none', facecolor='#202020', alpha=1.0) # not actual animation; just setting up
+        ax.add_patch(circle)
+        circles.append(circle)
+        texts.append(None)
+
+
+    title = ax.set_title("", fontsize=12, fontweight='bold', pad=10)
+
     # Light grid
     ax.grid(True, alpha=0.15, linestyle='--', linewidth=0.5) 
     
-    fig.set_size_inches(6, 6)
-    plt.savefig(f"fig_{frame_index:04d}.png", dpi=80, format='png')
-    plt.close(fig) # Close the figure window
-    plt.clf() #clears the entire content of the currently active Matplotlib figure,
+    return fig, ax, circles, texts, title, highcutoff, lowcutoff
 
 
-def create_video(output_name, fps, directory):
-    print("Creating video...")
-    
-    #find all frame files
-    images = sorted([img for img in os.listdir(directory) 
-                     if img.endswith(".png") and img.startswith("fig_")])
-    
-    #error msg if legit nothing was found
-    if not images:
-        print("Error: No frames found.")
-        return
-    #count
-    print(f"  Found {len(images)} frames")
-    
-    #read first frame to define dimensions of the video
-    frame = cv2.imread(os.path.join(directory, images[0]))
-    height, width = frame.shape[:2] # --> Returns (height, width, channels), e.g. (480, 480, 3) -> 480×480 RGB image
-    # ^^ only take height & weight tho. 
-    
-    #write video.
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  #fourcc aka "Four Character Code" is a video codec identifier
-    out = cv2.VideoWriter(output_name, fourcc, fps, (width, height)) #videowriter object
-    
-    #write all frames
-    for img in images:
-        frame = cv2.imread(os.path.join(directory, img))
-        if frame is not None and frame.shape[0] == height and frame.shape[1] == width: #ensure dimension matches
-            out.write(frame) # appends frame to video file
-    
-    out.release() # impt!! close video file (finalises encoding)
-    print(f"Video: {output_name}")
+### UPDATE FRAME
+def update_frame(frame, s_history, times, R, circles, texts, title, n_falling, highcutoff, lowcutoff):
+    s_current = s_history[frame]
+    time = times[frame]
 
-    
+    for n, circle in enumerate(circles):
+        x, y = s_current[n, 0], s_current[n, 1]        
+        circle.center = (x, y)
 
-### RUNNING
-if __name__ == "__main__": #Only runs if script executed directly (not imported as module)
-    print("\nCleaning old frames...")
-    for file in os.listdir(current_directory):
-        if file.startswith("fig_") and file.endswith(".png"):
-            os.remove(os.path.join(current_directory, file)) # Delete file
-    print("Cleaned")
-    
-    os.chdir(f"{rootdir}/ISS2.0/Figures")
-    current_directory = os.getcwd()
+        if n < n_falling: # setting colours
+            if R[n] > highcutoff:
+                circle.set_facecolor("#004CFF")
+            elif R[n] < lowcutoff:
+                circle.set_facecolor("#FF0000")
+            else:
+                circle.set_facecolor("#33FF33")
+            if texts[n] is not None:
+                texts[n].set_position((x, y))
 
-    run_simulation_visually() # executes the main simulation loop
-    create_video('output.mp4', display_fps, current_directory)
-    
-    print("\n" + "-"*60)
-    print("DONE!")
-    print(f"Video: 'output.mp4'")
-    print("-"*60)
+    # title
+    box_disp = get_box_displacement(time)
+    title.set_text(f'Time: {time:.2f}s | Oscillation: {box_disp*1000:.1f}mm')
+
+    return circles + [text for text in texts if text is not None] + [title] # for blitting (faster way to copy images)
+
+
+### RUNNING ANIMATION
+fig, ax, circles, texts, title, highcutoff, lowcutoff = initial_render(R, n_falling)
+
+animation = FuncAnimation(fig =fig, 
+                          func = update_frame, 
+                          frames = len(s_history), 
+                          fargs = (s_history, time_history, R, circles, texts, title, n_falling, highcutoff, lowcutoff), # args for update_frame
+                          blit = True, 
+                          interval=20 # delay between consecutive frames of an animation
+                          )
+
+
+### MAKING FRAMES
+def render_frame(frame_index, filename=None):
+    s_current = s_history[frame_index]
+    time = time_history[frame_index]
+    box_disp = get_box_displacement(time)
+
+    for n, circle in enumerate(circles):
+        x, y = s_current[n, 0], s_current[n, 1]        
+        circle.center = (x, y)
+
+        if n < n_falling: # setting colours
+            if R[n] > highcutoff:
+                circle.set_facecolor("#004CFF")
+            elif R[n] < lowcutoff:
+                circle.set_facecolor("#FF0000")
+            else:
+                circle.set_facecolor("#33FF33")
+            if texts[n] is not None:
+                texts[n].set_position((x, y))
+
+    # title
+    box_disp = get_box_displacement(time)
+    title.set_text(f'Time: {time:.2f}s | Oscillation: {box_disp*1000:.1f}mm')
+
+    fig.canvas.draw() # draw_idle if interactive
+    if filename:
+        fig.savefig(filename, dpi=80)
+
+# render all
+render_frames = True
+if render_frames:
+    os.chdir(f"{rootdir}/ISS2.0/Figures/")
+    os.makedirs("Frames", exist_ok=True) # exist_ok prevents errors if file is alr there
+    for frame in range(len(s_history)):
+        render_frame(frame, filename=f"Frames/fig_{frame:04d}.png")
+    print(f"Rendered frames")
+
+
+os.chdir(f"{rootdir}/ISS2.0/Figures")
+animation.save("output.mp4", fps=60, dpi=80)
+print(f"Saved video as 'output.mp4'")
