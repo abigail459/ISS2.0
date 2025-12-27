@@ -11,12 +11,10 @@ from collections import defaultdict
 from matplotlib.animation import FuncAnimation
 
 
-
 ### DIRECTORY SETUP
-rootdir = "/Users/Abigail/Desktop/Sciences" # js change this
+rootdir = "/Users/liliy/Documents/GitHub"
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
-
 
 ### DATA SETUP
 data = np.load("generated_values.npz")
@@ -26,6 +24,58 @@ s_history = data["s_history"]
 R = data["R"]
 n_falling = int(data["n_falling"])
 time_history = data["time_history"]
+
+def compute_seg_index_over_time(s_history, R, n_falling):
+    """
+    Compute segregation index S(t) for each saved frame.
+    S(t) = N_large,top / N_large
+    where 'large' is defined as the top third of radii among falling particles,
+    and 'top' means centres in the top 25% of the instantaneous bed height.
+    """
+    # Only falling particles are considered for size classification
+    all_R = R[:n_falling]
+    R_min = np.min(all_R)
+    R_max = np.max(all_R)
+
+    # same idea as your colour cutoffs: top third = large
+    highcutoff = R_max - (R_max - R_min) / 3.0
+
+    is_large = all_R > highcutoff
+    large_indices = np.where(is_large)[0]
+    N_large = len(large_indices)
+
+    n_frames = s_history.shape[0]
+    S_values = np.zeros(n_frames)
+
+    for k in range(n_frames):
+        # positions of falling particles in this frame
+        s_fall = s_history[k, :n_falling, :]
+        y_coords = s_fall[:, 1]
+
+        # define instantaneous bed height from falling particles
+        y_min = np.min(y_coords)
+        y_max = np.max(y_coords)
+        bed_height = y_max - y_min
+
+        if bed_height <= 0.0 or N_large == 0:
+            S_values[k] = 0.0
+            continue
+
+        # top 25% of bed
+        top_threshold = y_min + 0.75 * bed_height
+
+        # y of large particles only
+        large_y = y_coords[large_indices]
+        N_large_top = np.sum(large_y >= top_threshold)
+
+        S_values[k] = N_large_top / N_large
+
+    return S_values
+
+# compute S(t) once
+S_values = compute_seg_index_over_time(s_history, R, n_falling)
+np.save("S_values.npy", S_values)   # optional: save for later analysis
+
 
 osc_enable_x = bool(data.get("oscillation_enable_x", False))
 osc_enable_y = bool(data.get("oscillation_enable_y", True))
@@ -191,3 +241,15 @@ if render_frames:
 os.chdir(f"{rootdir}/ISS2.0/Figures")
 animation.save("output.mp4", fps=60, dpi=80)
 print(f"Saved video as 'output.mp4'")
+
+
+def plot_S_vs_time(time_history, S_values):
+    plt.figure()
+    plt.plot(time_history, S_values, '-k')
+    plt.xlabel("Time (s)")
+    plt.ylabel("Segregation index S")
+    plt.tight_layout()
+    plt.savefig("S_vs_time.png", dpi=150)
+    plt.close()
+
+plot_S_vs_time(time_history, S_values)
