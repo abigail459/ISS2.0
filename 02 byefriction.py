@@ -17,7 +17,7 @@ from numba import jit, prange
 
 
 ### DIRECTORY SETUP
-rootdir = "/Users/Abigail/Desktop/Sciences"  # js change this
+rootdir = "/Users/liliy/Documents/GitHub"  # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 data = np.load("falling_data.npz")
@@ -27,7 +27,7 @@ data = np.load("falling_data.npz")
 rho_particle = 7630        # kg/m^3, eq. 2.1a
 E_tilde = 1e7              # Pa, the effective Young's modulus in Hertzian contact formula.
                            # Lower value -> "softer" particles -> deeper overlaps -> slower/stable simulation.
-gamma_n_over_R = 1e5       #Pa*s/m,, more damping --> less bounce,, controls energy loss during collisions.s
+gamma_n_over_R = 2e5       #Pa*s/m,, more damping --> less bounce,, controls energy loss during collisions.s
 w_adhesion = 0.0           # J/m^2,, Surface energy density for JKR cohesive contact.
                            # Set to zero → no sticking forces between particles (non-cohesive granular flow).
 Mu_air = 1.82e-5           # Pa*s
@@ -68,9 +68,9 @@ class oscillation_config:
         '''
         
         self.amplitude_x = 0.0045
-        self.amplitude_y = 0.0075 # arnd 2–15mm (def: 0.004m)
+        self.amplitude_y = 0.007 # arnd 2–15mm (def: 0.004m)
 
-        self.frequency_x = 6.5
+        self.frequency_x = 5.0
         self.frequency_y = 7.6 # arnd 5-20  (def: 12.0Hz)
 
         #ignore for now till needed. this should make it go diagonal to diagonal.
