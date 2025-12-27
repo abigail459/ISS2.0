@@ -4,7 +4,7 @@ import random
 import numpy as np
 import os
 
-n_falling = 216  # no. of particles! :3
+n_falling = 264  # no. of particles! :3
 
 # plot_min = 0.0 # js change this
 # plot_max = 0.20 # and changethis too 
@@ -20,7 +20,7 @@ n_falling = 216  # no. of particles! :3
 # box_max = centre + box_width/2  
 
 
-os.chdir("/Users/liliy/Documents/GitHub/ISS2.0/data")
+os.chdir("/Users/Abigail/Desktop/Sciences/ISS2.0/data/")
 
 def WRITE(file, data):
     with open(file, "w", newline='') as fin:
@@ -51,9 +51,16 @@ box_height = box_top - box_bottom  # 0.18m
 # ===== THREE LAYERS IN BOX! :3 =====
 
 # Particle size ranges (3 distinct sizes)
-r_small = (0.003, 0.004)    # Small: 3-4mm
-r_medium = (0.0045, 0.0055) # Medium: 4.5-5.5mm
-r_large = (0.006, 0.007)    # Large: 6-7mm
+# r_small = (0.003, 0.004)    # Small: 3-4mm
+# r_medium = (0.0045, 0.0055) # Medium: 4.5-5.5mm
+# r_large = (0.006, 0.007)    # Large: 6-7mm
+# r_small = (0.0048, 0.00492)    
+# r_medium = (0.00493, 0.00508) 
+# r_large = (0.00509, 0.00520) 
+
+r_small = (0.0034, 0.00423)    
+r_medium = (0.00424, 0.00576) 
+r_large = (0.00577, 0.00660)   
 
 # Divide particles into thirds
 n_per_layer = n_falling // 3
@@ -114,6 +121,17 @@ s_falling = np.array(s_falling)
 v_falling = np.array(v_falling)
 R_falling = np.array(R_falling)
 
+# Colour coordination
+particletype = np.empty(n_falling, dtype=np.int8) # np.int8 takes up lesser memory
+
+for n, Rvalue in enumerate(R_falling):
+    if Rvalue >= r_large[0]:
+        particletype[n] = 2
+    elif Rvalue >= r_medium[0]:
+        particletype[n] = 1
+    else:
+        particletype[n] = 0
+
 # Save data
 WRITE("s_falling_data.csv", s_falling)
 WRITE("v_falling_data.csv", v_falling)
@@ -123,12 +141,12 @@ np.savez(
     "falling_data.npz",
     s_falling=s_falling,
     v_falling=v_falling,
-    R_falling=R_falling
+    R_falling=R_falling,
+    particletype=particletype
 )
 
 print(f"  Layer heights: {layer_height*100:.1f}cm each")
 print(f"{'='*60}\n")
-
 
 # ============================================================
 # OLD RANDOM GENERATION (COMMENTED OUT)
@@ -150,20 +168,20 @@ R_falling = np.array([r_gen() for _ in range(n_falling)])
 
 
 
-np.savez(
-    "falling_data.npz", 
-    s_falling = s_falling,
-    v_falling = v_falling,
-    R_falling = R_falling,
-    # plot_min = plot_min,
-    # plot_max = plot_max,
-    # box_width = box_width,
-    # box_height = box_height,
-    # box_left = box_min,
-    # box_right = box_max,
-    # box_bottom = box_min,
-    # box_top = box_max
-    )
+# np.savez(
+#     "falling_data.npz", 
+#     s_falling = s_falling,
+#     v_falling = v_falling,
+#     R_falling = R_falling,
+#     plot_min = plot_min,
+#     plot_max = plot_max,
+#     box_width = box_width,
+#     box_height = box_height,
+#     box_left = box_min,
+#     box_right = box_max,
+#     box_bottom = box_min,
+#     box_top = box_max
+#     )
 
 box_info = {
     "box_left": box_left,

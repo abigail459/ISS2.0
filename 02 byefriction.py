@@ -17,7 +17,7 @@ from numba import jit, prange
 
 
 ### DIRECTORY SETUP
-rootdir = "/Users/liliy/Documents/GitHub"  # js change this
+rootdir = "/Users/Abigail/Desktop/Sciences"  # js change this
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 data = np.load("falling_data.npz")
@@ -36,13 +36,14 @@ Mu_air = 1.82e-5           # Pa*s
 k_t = 2e7                  # tangential stiffness,, produces tangential (shear) force, F = -k * ξ, N/m. 
 mu_t = 0.3                 # # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
 mu_r = 0.04                # rolling friction coefficient
+# change above to 0.28, 0.03 if it looks weird
 
 # gravity
 g = np.array([0.0, -9.8, 0.0])
 
 # SIMULATION PARAMETERS
 t_step = 2e-5              # 20 microseconds
-simulation_duration = 180  # s
+simulation_duration = 5.0  # s
 display_fps = 60
 save_every_n_steps = int(1.0 / (display_fps * t_step))
 

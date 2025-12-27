@@ -14,7 +14,7 @@ import time as time_module
 
 
 ### DIRECTORY SETUP
-rootdir = "/Users/liliy/Documents/GitHub"
+rootdir = "/Users/Abigail/Desktop/Sciences"
 os.chdir(f"{rootdir}/ISS2.0/data")
 current_directory = os.getcwd()
 
@@ -26,6 +26,8 @@ s_history = data["s_history"]
 R = data["R"]
 n_falling = int(data["n_falling"])
 time_history = data["time_history"]
+rdata = np.load("falling_data.npz")
+particletype = rdata["particletype"]
 
 def compute_seg_index_over_time(s_history, R, n_falling):
     """
@@ -174,9 +176,9 @@ def update_frame(frame, s_history, times, R, circles, texts, title, n_falling, h
         circle.center = (x, y)
 
         if n < n_falling: # setting colours
-            if R[n] > highcutoff:
+            if particletype[n] == 2:
                 circle.set_facecolor("#004CFF")
-            elif R[n] < lowcutoff:
+            elif particletype[n] == 0:
                 circle.set_facecolor("#FF0000")
             else:
                 circle.set_facecolor("#33FF33")
@@ -219,9 +221,9 @@ def render_frame(frame_index, filename=None):
         circle.center = (x, y)
 
         if n < n_falling: # setting colours
-            if R[n] > highcutoff:
+            if particletype[n] == 2:
                 circle.set_facecolor("#004CFF")
-            elif R[n] < lowcutoff:
+            elif particletype[n] == 0:
                 circle.set_facecolor("#FF0000")
             else:
                 circle.set_facecolor("#33FF33")
