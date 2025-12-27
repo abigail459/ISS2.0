@@ -8,6 +8,8 @@ import os
 from matplotlib.patches import Circle
 import csv
 from collections import defaultdict
+import time as time_module
+
 
 from numba import jit, prange
 
@@ -32,15 +34,15 @@ Mu_air = 1.82e-5           # Pa*s
 
 # FRICTION PARAMETERS
 k_t = 2e7                  # tangential stiffness,, produces tangential (shear) force, F = -k * ξ, N/m. 
-mu_t = 0.5                 # # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
-mu_r = 0.01                # rolling friction coefficient
+mu_t = 0.3                 # # sliding (Coulomb) friction coefficient,, Higher µₜ --> particles grip more, form stable piles.
+mu_r = 0.04                # rolling friction coefficient
 
 # gravity
 g = np.array([0.0, -9.8, 0.0])
 
 # SIMULATION PARAMETERS
 t_step = 2e-5              # 20 microseconds
-simulation_duration = 5.0  # s
+simulation_duration = 180  # s
 display_fps = 60
 save_every_n_steps = int(1.0 / (display_fps * t_step))
 
@@ -66,10 +68,10 @@ class oscillation_config:
         '''
         
         self.amplitude_x = 0.0045
-        self.amplitude_y = 0.010 # arnd 2–15mm (def: 0.004m)
+        self.amplitude_y = 0.0075 # arnd 2–15mm (def: 0.004m)
 
-        self.frequency_x = 5.0
-        self.frequency_y = 5.89 # arnd 5-20  (def: 12.0Hz)
+        self.frequency_x = 6.5
+        self.frequency_y = 7.6 # arnd 5-20  (def: 12.0Hz)
 
         #ignore for now till needed. this should make it go diagonal to diagonal.
         self.phase_x = 0.0
@@ -440,7 +442,6 @@ def run_simulation():
     frame_counter = 1
     n_steps = int(simulation_duration / t_step)
 
-    import time as time_module
     start_time = time_module.time()
     last_print = start_time
 

@@ -9,6 +9,8 @@ from matplotlib.patches import Circle
 import csv
 from collections import defaultdict
 from matplotlib.animation import FuncAnimation
+import time as time_module
+
 
 
 
@@ -128,6 +130,11 @@ def update_frame(frame, s_history, times, R, circles, texts, title, n_falling, h
                 circle.set_facecolor("#FF0000")
             else:
                 circle.set_facecolor("#33FF33")
+
+            # if n == 137:
+            #     circle.set_facecolor("#004CFF")
+            # else:
+            #     circle.set_facecolor("#FF0C00")
             if texts[n] is not None:
                 texts[n].set_position((x, y))
 
@@ -140,6 +147,7 @@ def update_frame(frame, s_history, times, R, circles, texts, title, n_falling, h
 
 ### RUNNING ANIMATION
 fig, ax, circles, texts, title, highcutoff, lowcutoff = initial_render(R, n_falling)
+start_time = time_module.time()
 
 animation = FuncAnimation(fig =fig, 
                           func = update_frame, 
@@ -179,7 +187,7 @@ def render_frame(frame_index, filename=None):
         fig.savefig(filename, dpi=80)
 
 # render all
-render_frames = True
+render_frames = False
 if render_frames:
     os.chdir(f"{rootdir}/ISS2.0/Figures/")
     os.makedirs("Frames", exist_ok=True) # exist_ok prevents errors if file is alr there
@@ -188,6 +196,12 @@ if render_frames:
     print(f"Rendered frames")
 
 
+### END OUTPUT + SAVING ANIMATION
+# total_time = time_module.time() - start_time
 os.chdir(f"{rootdir}/ISS2.0/Figures")
-animation.save("output.mp4", fps=60, dpi=80)
-print(f"Saved video as 'output.mp4'")
+# name = f"output-f{freq_y}-a{amp_y}"
+animation.save("output.mp4", fps=display_fps, dpi=80)
+print("\n"+"-"*60)
+print(f"Saved video as 'output.mp4' with freq={freq_y} and amp={amp_y}")
+print("-"*60)
+
